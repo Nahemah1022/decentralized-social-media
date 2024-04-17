@@ -1,5 +1,5 @@
-# CSEE 4119 Spring 2024, Class Project - A Decentralized Social Network Application
-## Team name: Fat Cat
+# CSEE 4119 Spring 2024, Class Project 
+# A Decentralized Social Network Application
 
 ## Design Overview
 ### Architecture
