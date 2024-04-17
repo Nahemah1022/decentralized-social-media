@@ -3,11 +3,14 @@
 
 ## Design Overview
 ### Architecture
-- A decentralized blockchain, which is permissionless that allows anyone to participate in the network without prior approval.
-- Uses a Proof of Stake (PoS) mechanism to ensure network security and consensus.
+- Front-end GUI: hosts a responsive GUI to handle HTTP requests and render the whole list of posts.
+- Web server: upon receiving an HTTP request, it interacts with the blockchain. Specifically, when the server receives a new post request, it contacts the tracker to obtain information on the longest chain and returns the details to the front-end GUI.
+- Blockchain
+    - Type: a decentralized, permissionless blockchain that allows anyone to participate in the network without prior approval.
+    - Consensue: uses a Proof of Stake (PoS) mechanism to ensure network security and consensus.
 - Block structure: 
     - Header: includes the block version, previous block hash, timestamp, Merkle tree root hash, and nonce.
-    - Body: consists of multiple transactions, each representing different types of user interactions like posts, likes, comments, and follows.
+    - Body: consists of transactions related to posts and likes.
 
 ### Cryptography
 - Hash functions: uses SHA-256 to generate cryptographic hashes for blocks and transactions.
@@ -16,7 +19,7 @@
 ## Peer-to-Peer (P2P) Protocol
 ### Network Structure
 - A tracker: maintains an updated list of peers in the network, which is dynamically updated when peers join or leave the network.
-- Node types (at leaset 3 peers)
+- Node types
     - Full nodes: maintain a complete copy of the blockchain, validate blocks and transactions, and participate in the consensus process.
     - Light nodes: hold essential data and rely on full nodes for additional information and validation services.
 
@@ -32,9 +35,10 @@
 
 ## Demo Application Design
 ### Key Functionalities
-- User registration and authentication: users can create and manage blockchain-based identities.
 - Content creation: users can post content, which is recorded as transactions on the blockchain.
-- Social interactions: the ability to follow other users, like and comment on posts.
+- Social interactions: the ability to like posts.
+- Coins rewards mechanisms [TBD]
+
 ### Tech Stacks [TBD]
 - Front-end
     - HTML
