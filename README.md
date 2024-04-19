@@ -8,3 +8,8 @@
 - Chia-Mei Liu (cl4424), madiliu 
 
 *Please replace this text with information on how to run your code, description of each file in the directory, and any assumptions you have made for your code*
+
+
+## Usage
+
+- python3 backend/app/app.py
