@@ -1,6 +1,6 @@
 from flask import Flask, send_from_directory, request
 
-app = Flask(__name__, static_folder='../../frontend/dist', static_url_path='')
+app = Flask(__name__, static_folder='../../frontend2/build', static_url_path='')
 
 
 @app.route('/api/test')
@@ -18,7 +18,6 @@ def api(path: str):
 
 
 @app.route('/')
-@app.route('/about')
 def home():
     return send_from_directory(app.static_folder, 'index.html')
 
