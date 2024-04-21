@@ -1,3 +1,4 @@
+# P2PNode
 # Attributes:
 # peer_addrs: Array - A list of addresses (IP and port) for other peers this node can connect to.
 # tracker_addr: Tuple - The address (IP and port) of the tracker node.
