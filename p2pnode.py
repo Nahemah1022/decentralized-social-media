@@ -36,7 +36,7 @@ class P2PNode:
             self.peer_websockets[peer_addr] = websocket
             # Consider starting a listener for each peer connection here
         except Exception as e:
-            print(f"Failed to connect to peer {peer_addr}: {e}")
+            print(f"[ERROR] Failed to connect to peer {peer_addr}: {e}")
 
     async def disconnect_from_peer(self, peer_addr):
         websocket = self.peer_websockets.pop(peer_addr, None)
@@ -49,7 +49,7 @@ class P2PNode:
             # Send join event
             await self.peers_join()
         except Exception as e:
-            print(f"Failed to connect to tracker: {e}")
+            print(f"[ERROR] Failed to connect to tracker: {e}")
 
     async def send_message(self, peer_addr, message):
         websocket = self.peer_websockets.get(peer_addr)
@@ -76,9 +76,9 @@ class P2PNode:
     async def listen_to_tracker(self):
         try:
             async for message in self.tracker_websocket:
-                print(f"Received message from tracker: {message}")
+                print(f"[INFO] Received message from tracker: {message}")
         except Exception as e:
-            print(f"Error listening to tracker: {e}")
+            print(f"[ERROR] Error listening to tracker: {e}")
 
 async def main():
     node = P2PNode("localhost", 6789)
@@ -86,5 +86,6 @@ async def main():
     await node.listen_to_tracker()
 
 if __name__ == "__main__":
+    print("[DEBUG] Start p2pnode.py")
     asyncio.run(main())
 

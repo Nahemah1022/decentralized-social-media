@@ -35,6 +35,7 @@ class Tracker:
 
     async def get_peers_addrs(self):
         """Return a list of addresses for all connected peers."""
+        # remote_address: (host, port) like ('127.0.0.1', 6789)"
         return [str(ws.remote_address) for ws in self.peers if ws.open]
 
     async def broadcast(self, message):
@@ -46,22 +47,34 @@ class Tracker:
         """Handle incoming WebSocket connections and messages."""
         try:
             async for message in websocket:
-                data = json.loads(message)
-                if data['action'] == 'register':
-                    success = await self.register(data['username'], data['public_key'], websocket)
-                    await websocket.send(json.dumps({'action': 'register', 'success': success}))
-                elif data['action'] == 'get_peers':
-                    peers = await self.get_peers_addrs()
-                    await websocket.send(json.dumps({'action': 'get_peers', 'peers': peers}))
-                elif data['action'] == 'get_public_key':
-                    public_key = await self.get_user_public_key(data['username'])
-                    await websocket.send(json.dumps({'action': 'get_public_key', 'public_key': public_key}))
+                try:
+                    data = json.loads(message)
+                    # Check if 'action' key is present in the received message
+                    if 'action' not in data:
+                        print("[WARNING] Received message without 'action' key.")
+                        continue
+
+                    if data['action'] == 'register':
+                        success = await self.register(data['username'], data['public_key'], websocket)
+                        await websocket.send(json.dumps({'action': 'register', 'success': success}))
+                    elif data['action'] == 'get_peers':
+                        peers = await self.get_peers_addrs()
+                        await websocket.send(json.dumps({'action': 'get_peers', 'peers': peers}))
+                    elif data['action'] == 'get_public_key':
+                        public_key = await self.get_user_public_key(data['username'])
+                        await websocket.send(json.dumps({'action': 'get_public_key', 'public_key': public_key}))
+                except json.JSONDecodeError:
+                    print("[ERROR] Invalid JSON received.")
+                except KeyError as e:
+                    print(f"[ERROR] Missing expected key in data: {e}")
+        except Exception as e:
+            print(f"[ERROR] Error handling connection: {e}")
         finally:
             # Cleanup when connection closes
             if websocket in self.peers:
-                del self.peers[websocket]
-                username = self.peers.pop(websocket)
+                username = self.peers.pop(websocket, None)
                 await self.broadcast(json.dumps({'action': 'peer_left', 'username': username}))
+                print(f"[INFO] Connection closed for {path}")
 
 async def main():
     tracker = Tracker()
@@ -69,5 +82,7 @@ async def main():
         await asyncio.Future()  # Run until cancelled
 
 if __name__ == "__main__":
+    print("[DEBUG] Start tracker.py")
     asyncio.run(main())
+    
 
