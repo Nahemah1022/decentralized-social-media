@@ -3,9 +3,10 @@ import asyncio
 import websockets
 
 async def start_server(handler, host, port):
-    async with websockets.serve(handler, host, port):
-        await asyncio.Future()  # Run until cancelled
+    server = await websockets.serve(handler, host, port)
+    await server.wait_closed()  # This ensures the server runs indefinitely unless closed.
 
 async def connect_to_server(uri):
-    async with websockets.connect(uri) as websocket:
-        return websocket  # The calling function will handle the websocket
+    # Create a WebSocket connection that stays open for external use.
+    websocket = await websockets.connect(uri)
+    return websocket  # Let the caller handle the websocket lifecycle.

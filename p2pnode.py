@@ -20,34 +20,71 @@
 
 # p2pnode.py
 import asyncio
+import websockets
 import json
-from network import connect_to_server
 
 class P2PNode:
-    def __init__(self, tracker_uri):
-        self.tracker_uri = tracker_uri
-        self.peer_sockets = set()
+    def __init__(self, tracker_host, tracker_port):
+        self.peer_addrs = []  # Will be filled with peer addresses as (host, port)
+        self.tracker_addr = (tracker_host, tracker_port)  # Tracker address as (host, port)
+        self.peer_websockets = {}  # Stores WebSocket connections to peers
+        self.tracker_websocket = None  # WebSocket connection to the tracker
+
+    async def connect_to_peer(self, peer_addr):
+        try:
+            websocket = await websockets.connect(f"ws://{peer_addr[0]}:{peer_addr[1]}")
+            self.peer_websockets[peer_addr] = websocket
+            # Consider starting a listener for each peer connection here
+        except Exception as e:
+            print(f"Failed to connect to peer {peer_addr}: {e}")
+
+    async def disconnect_from_peer(self, peer_addr):
+        websocket = self.peer_websockets.pop(peer_addr, None)
+        if websocket:
+            await websocket.close()
 
     async def connect_to_tracker(self):
-        self.tracker_socket = await connect_to_server(self.tracker_uri)
-        # Send a message to the tracker to register or request peer list, etc.
+        try:
+            self.tracker_websocket = await websockets.connect(f"ws://{self.tracker_addr[0]}:{self.tracker_addr[1]}")
+            # Send join event
+            await self.peers_join()
+        except Exception as e:
+            print(f"Failed to connect to tracker: {e}")
 
+    async def send_message(self, peer_addr, message):
+        websocket = self.peer_websockets.get(peer_addr)
+        if websocket:
+            await websocket.send(json.dumps(message))
+
+    async def peers_update(self, update_type, peer_addr):
+        if update_type == 'join' and peer_addr not in self.peer_addrs:
+            self.peer_addrs.append(peer_addr)
+            await self.connect_to_peer(peer_addr)
+        elif update_type == 'leave' and peer_addr in self.peer_addrs:
+            self.peer_addrs.remove(peer_addr)
+            await self.disconnect_from_peer(peer_addr)
+
+    async def peers_leave(self):
+        if self.tracker_websocket:
+            await self.tracker_websocket.send(json.dumps({'event': 'leave'}))
+
+    async def peers_join(self):
+        if self.tracker_websocket:
+            await self.tracker_websocket.send(json.dumps({'event': 'join'}))
+
+    # Add a method to listen to the tracker
     async def listen_to_tracker(self):
-        # This method handles incoming messages from the tracker
-        async for message in self.tracker_socket:
-            # Process message from the tracker
-            print(f"Received message from tracker: {message}")
-
-    async def connect_to_peer(self, peer_uri):
-        # This method would handle peer connections
-        peer_socket = await connect_to_server(peer_uri)
-        self.peer_sockets.add(peer_socket)
-        # Listen to messages from peers, etc.
+        try:
+            async for message in self.tracker_websocket:
+                print(f"Received message from tracker: {message}")
+        except Exception as e:
+            print(f"Error listening to tracker: {e}")
 
 async def main():
-    node = P2PNode("ws://localhost:6789")
+    node = P2PNode("localhost", 6789)
     await node.connect_to_tracker()
     await node.listen_to_tracker()
 
 if __name__ == "__main__":
     asyncio.run(main())
+

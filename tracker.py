@@ -14,35 +14,60 @@
 
 # tracker.py
 import asyncio
+import websockets
 import json
-from network import start_server
 
 class Tracker:
     def __init__(self):
-        self.active_nodes = set()
+        self.peers = {}  # Maps WebSocket connection to peer address
+        self.users = {}  # Maps usernames to public keys
 
-    async def handle_connection(self, websocket, path):
-        # Register new node
-        self.active_nodes.add(websocket)
-        try:
-            # Main event loop for the websocket
-            async for message in websocket:
-                # Here you would handle incoming messages such as node disconnects
-                pass
-        finally:
-            # Unregister node
-            self.active_nodes.remove(websocket)
-            # Notify other nodes about the disconnect
-            await self.broadcast(f"Node {path} disconnected")
+    async def register(self, username, public_key, websocket):
+        if username in self.users:
+            return False
+        self.users[username] = public_key
+        self.peers[websocket] = username
+        return True
+
+    async def get_user_public_key(self, username):
+        """Retrieve the public key associated with the given username."""
+        return self.users.get(username, None)  # Return None if username not found
+
+    async def get_peers_addrs(self):
+        """Return a list of addresses for all connected peers."""
+        return [str(ws.remote_address) for ws in self.peers if ws.open]
 
     async def broadcast(self, message):
-        # Broadcast a message to all connected nodes
-        if self.active_nodes:  # Check if there are any connected nodes
-            await asyncio.wait([node.send(message) for node in self.active_nodes])
+        """Broadcast a message to all connected peers."""
+        if self.peers:  # Ensure there are peers to broadcast to
+            await asyncio.wait([peer.send(message) for peer in self.peers if peer.open])
+
+    async def handle_connection(self, websocket, path):
+        """Handle incoming WebSocket connections and messages."""
+        try:
+            async for message in websocket:
+                data = json.loads(message)
+                if data['action'] == 'register':
+                    success = await self.register(data['username'], data['public_key'], websocket)
+                    await websocket.send(json.dumps({'action': 'register', 'success': success}))
+                elif data['action'] == 'get_peers':
+                    peers = await self.get_peers_addrs()
+                    await websocket.send(json.dumps({'action': 'get_peers', 'peers': peers}))
+                elif data['action'] == 'get_public_key':
+                    public_key = await self.get_user_public_key(data['username'])
+                    await websocket.send(json.dumps({'action': 'get_public_key', 'public_key': public_key}))
+        finally:
+            # Cleanup when connection closes
+            if websocket in self.peers:
+                del self.peers[websocket]
+                username = self.peers.pop(websocket)
+                await self.broadcast(json.dumps({'action': 'peer_left', 'username': username}))
 
 async def main():
     tracker = Tracker()
-    await start_server(tracker.handle_connection, "localhost", 6789)
+    async with websockets.serve(tracker.handle_connection, "localhost", 6789):
+        await asyncio.Future()  # Run until cancelled
 
 if __name__ == "__main__":
     asyncio.run(main())
+
