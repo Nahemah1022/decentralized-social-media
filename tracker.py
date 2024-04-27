@@ -17,6 +17,7 @@ import socket
 import json
 from threading import Thread
 
+
 class Tracker:
     def __init__(self):
         self.clients = {}  # Maps client sockets to usernames
@@ -33,14 +34,22 @@ class Tracker:
                 action = message.get('action')
 
                 if action == 'register':
-                    response = self.register(message['username'], message['public_key'], client_socket)
-                    client_socket.sendall(json.dumps({'action': 'register', 'success': response}).encode())
+                    response = self.register(
+                        message['username'], message['public_key'], client_socket)
+                    client_socket.sendall(json.dumps(
+                        {'action': 'register', 'success': response}).encode())
                 elif action == 'get_peers':
                     peers = self.get_peers_addrs()
-                    client_socket.sendall(json.dumps({'action': 'get_peers', 'peers': peers}).encode())
+                    client_socket.sendall(json.dumps(
+                        {'action': 'get_peers', 'peers': peers}).encode())
                 elif action == 'get_public_key':
                     public_key = self.get_user_public_key(message['username'])
-                    client_socket.sendall(json.dumps({'action': 'get_public_key', 'public_key': public_key}).encode())
+                    client_socket.sendall(json.dumps(
+                        {'action': 'get_public_key', 'public_key': public_key}).encode())
+                elif action == 'add_peer':
+                    peers = self.get_peers_addrs().append(message.get('addr'))
+                    client_socket.sendall(json.dumps(
+                        {'action': 'add_peer', 'peers': peers}).encode())
 
         except json.JSONDecodeError:
             print("[ERROR] Invalid JSON received.")
@@ -80,6 +89,7 @@ class Tracker:
             del self.clients[client_socket]
         print(f"[INFO] Connection closed for {addr}")
 
+
 def start_server(host, port, handler):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind((host, port))
@@ -90,6 +100,7 @@ def start_server(host, port, handler):
         client_socket, addr = server_socket.accept()
         print(f"[INFO] Connection from {addr}")
         Thread(target=handler, args=(client_socket, addr)).start()
+
 
 if __name__ == "__main__":
     tracker = Tracker()

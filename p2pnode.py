@@ -14,7 +14,7 @@
 # P2P Node
 # connect_to_tracker()
 # connect_to_peer()
-# 
+#
 
 # Tracker
 
@@ -30,14 +30,18 @@
 import socket
 import json
 from threading import Thread
+import requests
+
 
 class P2PNode:
     def __init__(self, tracker_host, tracker_port):
-        self.peer_addrs = []  # Will be filled with peer addresses as (host, port)
-        self.tracker_addr = (tracker_host, tracker_port)  # Tracker address as (host, port)
+        self.peer_addrs = []
+        self.tracker_addr = (tracker_host, tracker_port)
         self.peer_sockets = {}  # Stores TCP connections to peers
 
         self.tracker_socket = self.connect_to_tracker()
+        self.self_addr = self.get_internal_ip()
+        self.send_message_to_tracker(self.self_addr)
 
     def connect_to_tracker(self):
         """Establishes a TCP connection to the tracker."""
@@ -45,7 +49,8 @@ class P2PNode:
             tracker_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             tracker_socket.connect(self.tracker_addr)
             print("[INFO] Connected to tracker.")
-            Thread(target=self.listen_to_tracker, args=(tracker_socket,)).start()
+            Thread(target=self.listen_to_tracker,
+                   args=(tracker_socket,)).start()
             return tracker_socket
         except Exception as e:
             print(f"[ERROR] Failed to connect to tracker: {e}")
@@ -78,6 +83,14 @@ class P2PNode:
             except Exception as e:
                 print(f"[ERROR] Failed to send message to {peer_addr}: {e}")
 
+    def send_message_to_tracker(self, self_addr):
+        add_node = {
+            "action": "add_peer",
+            "addr": self_addr,
+        }
+        message = json.dumps(add_node)
+        self.tracker_socket.sendall(message.encode('utf-8'))
+
     def receive_messages(self, socket):
         """Receives messages from a socket."""
         try:
@@ -101,10 +114,35 @@ class P2PNode:
                     break
                 message = json.loads(data.decode())
                 print(f"[INFO] Received message from tracker: {message}")
+                action = message.get('action')
+
+                if action == 'add_peer':
+                    self.peer_addrs = message.get('peers')
         except Exception as e:
             print(f"[ERROR] Error listening to tracker: {e}")
         finally:
             tracker_socket.close()
+
+    def get_internal_ip():
+        """
+        Fetches the internal IP address of a Google Cloud VM instance using the metadata server.
+
+        Returns:
+            str: The internal IP address as a string, or None if an error occurs.
+
+        Raises:
+            Exception: Outputs an error message to the console if the metadata server cannot be reached.
+        """
+        metadata_url = 'http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip'
+        headers = {'Metadata-Flavor': 'Google'}
+        try:
+            response = requests.get(metadata_url, headers=headers)
+            response.raise_for_status()  # Raise an exception for HTTP errors
+            return response.text  # The internal IP address as a string
+        except Exception as e:
+            print(f"Error fetching internal IP from metadata server: {e}")
+            return None
+
 
 if __name__ == "__main__":
     node = P2PNode("localhost", 6789)
