@@ -1,7 +1,8 @@
 from hashlib import sha256
+import struct
 
 # Stringify and concatenate all arguments and produces a sha256 hash as a result
-def updatehash(*args):
+def hash(*args):
     hashing_text = ""; h = sha256()
 
     for arg in args:
@@ -12,25 +13,37 @@ def updatehash(*args):
 
 # The "block" of the blockchain. Points to the previous block by its unique hash in previous_hash.
 class Block():
-    def __init__(self, number=0, previous_hash="0"*64, data=None, nonce=0):
+    def __init__(self, previous_hash="0"*64, data=None, nonce=0):
         self.data = data
-        self.number = number
         self.previous_hash = previous_hash
         self.nonce = nonce
 
     # Compute a sha256 hash for the block's data.
     def hash(self):
-        return updatehash(
-            self.number,
+        return hash(
             self.previous_hash,
             self.data,
             self.nonce
         )
 
+    def encode(self):
+        format_string = '32sI'  # 32-byte SHA256, 4-byte unsigned int
+        header = struct.pack(format_string, self.previous_hash.encode('utf-8'), self.nonce)
+        data = self.data
+        if isinstance(data, str):
+            data = data.encode('utf-8')
+        return header + data
+    
+    @classmethod
+    def decode(cls, block_data):
+        format_string = '32sI'
+        header_size = struct.calcsize(format_string)
+        hs, nonce = struct.unpack(format_string, block_data[:header_size])
+        return cls(hs, block_data[header_size:], nonce)
+
     # Returns a string of the block's data. Useful for diagnostic print statements.
     def __str__(self):
-        return str("Block# : %s\nHash: %s\nPrevious: %s\nData: %s\nNonce: %s\n" %(
-            self.number,
+        return str("Block : Hash: %s\nPrevious: %s\nData: %s\nNonce: %s\n" %(
             self.hash(),
             self.previous_hash,
             self.data,
@@ -66,11 +79,15 @@ class Blockchain():
         # loop until nonce that satisifeis difficulty is found
         while True:
             if block.hash()[:self.difficulty] == "0" * self.difficulty:
-                self.add(block)
                 return block
             else:
                 # increase the nonce by one and try again
                 block.nonce += 1
+
+    # check if a block is valid to attach
+    def isBlockValid(self, block):
+        cur_hash = block.hash()
+        return self.chain[-1].hash() == block.previous_hash and cur_hash[:self.difficulty] == "0" * self.difficulty
 
     # check if blockchain is valid
     def isValid(self, start_idx=1):
@@ -86,19 +103,25 @@ class Blockchain():
 
 if __name__ == '__main__':
     blockchain = Blockchain()
-    database = ["hello", "goodbye", "test", "DATA here"]
-
-    num = 0
+    database = [b"hello", b"goodbye", b"test", b"DATA here"]
 
     for data in database:
-        num += 1
-        blockchain.mine(Block(num, data=data))
+        mined_block = blockchain.mine(Block(data=data))
+        blockchain.add(mined_block)
 
     for block in blockchain.chain:
         print(block)
 
     print(blockchain.isValid())
 
-    blockchain.chain[2].data = "NEW DATA"
+    # encoded_block = blockchain.chain[-1].encode()
+    # print(encoded_block)
+    # print(Block.decode(encoded_block))
+
+    last_block = blockchain.chain[-1]
+    blockchain.remove(blockchain.chain[-1])
+    print(blockchain.isBlockValid(last_block))
+
+    blockchain.chain[2].data = b"NEW DATA"
     blockchain.mine(blockchain.chain[2])
     print(blockchain.isValid())
