@@ -13,76 +13,85 @@
 # None specified, but typical events for a Tracker might include things like "onPeerJoin" and "onPeerLeave" to handle nodes connecting to and disconnecting from the network.
 
 # tracker.py
-import asyncio
-import websockets
+import socket
 import json
+from threading import Thread
 
 class Tracker:
     def __init__(self):
-        self.peers = {}  # Maps WebSocket connection to peer address
+        self.clients = {}  # Maps client sockets to usernames
         self.users = {}  # Maps usernames to public keys
 
-    async def register(self, username, public_key, websocket):
+    def handle_connection(self, client_socket, addr):
+        """Handle each client connection in a separate thread."""
+        try:
+            while True:
+                data = client_socket.recv(1024)
+                if not data:
+                    break
+                message = json.loads(data.decode())
+                action = message.get('action')
+
+                if action == 'register':
+                    response = self.register(message['username'], message['public_key'], client_socket)
+                    client_socket.sendall(json.dumps({'action': 'register', 'success': response}).encode())
+                elif action == 'get_peers':
+                    peers = self.get_peers_addrs()
+                    client_socket.sendall(json.dumps({'action': 'get_peers', 'peers': peers}).encode())
+                elif action == 'get_public_key':
+                    public_key = self.get_user_public_key(message['username'])
+                    client_socket.sendall(json.dumps({'action': 'get_public_key', 'public_key': public_key}).encode())
+
+        except json.JSONDecodeError:
+            print("[ERROR] Invalid JSON received.")
+        except KeyError as e:
+            print(f"[ERROR] Missing expected key in data: {e}")
+        finally:
+            self.disconnect_client(client_socket, addr)
+
+    def register(self, username, public_key, client_socket):
+        """Registers a new node with the given username and public key."""
         if username in self.users:
             return False
         self.users[username] = public_key
-        self.peers[websocket] = username
+        self.clients[client_socket] = username
         return True
 
-    async def get_user_public_key(self, username):
-        """Retrieve the public key associated with the given username."""
-        return self.users.get(username, None)  # Return None if username not found
+    def get_user_public_key(self, username):
+        """Retrieves the public key associated with the given username."""
+        return self.users.get(username, None)
 
-    async def get_peers_addrs(self):
-        """Return a list of addresses for all connected peers."""
-        # remote_address: (host, port) like ('127.0.0.1', 6789)"
-        return [str(ws.remote_address) for ws in self.peers if ws.open]
+    def get_peers_addrs(self):
+        """Returns a list of addresses for all connected peers."""
+        return [str(client.getpeername()) for client in self.clients if client]
 
-    async def broadcast(self, message):
-        """Broadcast a message to all connected peers."""
-        if self.peers:  # Ensure there are peers to broadcast to
-            await asyncio.wait([peer.send(message) for peer in self.peers if peer.open])
+    def broadcast(self, message):
+        """Broadcasts a message to all connected peers."""
+        for client in self.clients:
+            try:
+                client.sendall(json.dumps(message).encode())
+            except:
+                continue
 
-    async def handle_connection(self, websocket, path):
-        """Handle incoming WebSocket connections and messages."""
-        try:
-            async for message in websocket:
-                try:
-                    data = json.loads(message)
-                    # Check if 'action' key is present in the received message
-                    if 'action' not in data:
-                        print("[WARNING] Received message without 'action' key.")
-                        continue
+    def disconnect_client(self, client_socket, addr):
+        """Disconnects and removes a client."""
+        client_socket.close()
+        if client_socket in self.clients:
+            del self.clients[client_socket]
+        print(f"[INFO] Connection closed for {addr}")
 
-                    if data['action'] == 'register':
-                        success = await self.register(data['username'], data['public_key'], websocket)
-                        await websocket.send(json.dumps({'action': 'register', 'success': success}))
-                    elif data['action'] == 'get_peers':
-                        peers = await self.get_peers_addrs()
-                        await websocket.send(json.dumps({'action': 'get_peers', 'peers': peers}))
-                    elif data['action'] == 'get_public_key':
-                        public_key = await self.get_user_public_key(data['username'])
-                        await websocket.send(json.dumps({'action': 'get_public_key', 'public_key': public_key}))
-                except json.JSONDecodeError:
-                    print("[ERROR] Invalid JSON received.")
-                except KeyError as e:
-                    print(f"[ERROR] Missing expected key in data: {e}")
-        except Exception as e:
-            print(f"[ERROR] Error handling connection: {e}")
-        finally:
-            # Cleanup when connection closes
-            if websocket in self.peers:
-                username = self.peers.pop(websocket, None)
-                await self.broadcast(json.dumps({'action': 'peer_left', 'username': username}))
-                print(f"[INFO] Connection closed for {path}")
+def start_server(host, port, handler):
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind((host, port))
+    server_socket.listen(5)
+    print(f"Tracker listening on {host}:{port}")
 
-async def main():
-    tracker = Tracker()
-    async with websockets.serve(tracker.handle_connection, "localhost", 6789):
-        await asyncio.Future()  # Run until cancelled
+    while True:
+        client_socket, addr = server_socket.accept()
+        print(f"[INFO] Connection from {addr}")
+        Thread(target=handler, args=(client_socket, addr)).start()
 
 if __name__ == "__main__":
-    print("[DEBUG] Start tracker.py")
-    asyncio.run(main())
-    
-
+    tracker = Tracker()
+    HOST, PORT = 'localhost', 6789
+    start_server(HOST, PORT, tracker.handle_connection)
