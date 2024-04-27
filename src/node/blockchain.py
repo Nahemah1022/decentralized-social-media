@@ -12,7 +12,7 @@ def updatehash(*args):
 
 # The "block" of the blockchain. Points to the previous block by its unique hash in previous_hash.
 class Block():
-    def __init__(self,number=0, previous_hash="0"*64, data=None, nonce=0):
+    def __init__(self, number=0, previous_hash="0"*64, data=None, nonce=0):
         self.data = data
         self.number = number
         self.previous_hash = previous_hash
@@ -45,8 +45,8 @@ class Blockchain():
     difficulty = 4
 
     # restarts a new blockchain or the existing one upon initialization
-    def __init__(self):
-        self.chain = []
+    def __init__(self, chain=[]):
+        self.chain = chain
 
     # add a new block to the chain
     def add(self, block):
@@ -66,7 +66,8 @@ class Blockchain():
         # loop until nonce that satisifeis difficulty is found
         while True:
             if block.hash()[:self.difficulty] == "0" * self.difficulty:
-                self.add(block); break
+                self.add(block)
+                return block
             else:
                 # increase the nonce by one and try again
                 block.nonce += 1
