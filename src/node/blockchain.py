@@ -35,11 +35,11 @@ class Block():
         return header + data
     
     @classmethod
-    def decode(cls, block_data):
+    def decode(cls, encoded_block):
         format_string = '32sI'
         header_size = struct.calcsize(format_string)
-        hs, nonce = struct.unpack(format_string, block_data[:header_size])
-        return cls(hs, block_data[header_size:], nonce)
+        prev_hs, nonce = struct.unpack(format_string, encoded_block[:header_size])
+        return cls(prev_hs, encoded_block[header_size:], nonce)
 
     # Returns a string of the block's data. Useful for diagnostic print statements.
     def __str__(self):
@@ -60,13 +60,16 @@ class Blockchain():
     # restarts a new blockchain or the existing one upon initialization
     def __init__(self, chain=[]):
         self.chain = chain
+        self.block_table = {} # [(mined_block_hash, index_of_the_block_in_chain)]
 
     # add a new block to the chain
     def add(self, block):
+        self.block_table[block.hash()] = len(self.chain)
         self.chain.append(block)
 
     # remove a block from the chain
     def remove(self, block):
+        del self.block_table[block.hash()]
         self.chain.remove(block)
 
     # find the nonce of the block that satisfies the difficulty and add to chain
@@ -85,7 +88,7 @@ class Blockchain():
                 block.nonce += 1
 
     # check if a block is valid to attach
-    def isBlockValid(self, block):
+    def isAttachableBlock(self, block):
         cur_hash = block.hash()
         return self.chain[-1].hash() == block.previous_hash and cur_hash[:self.difficulty] == "0" * self.difficulty
 
@@ -100,28 +103,82 @@ class Blockchain():
                 return False
 
         return True
+    
+    # merge the remote chain into local chain by finding the fork point
+    # TODO: test this function
+    def mergeChain(self, remote_chain):
+        for i, remote_block in enumerate(reversed(remote_chain)):
+            # if the last block in the remote subchain exists in the local chain, 
+            # it means local chain must be longer than remote chain => nothing to merge
+            # therefore, we can just start from checking the second last block
+            remote_subchain_len = i + 1
+            if remote_block.previous_hash in self.block_table:
+                fork_point = self.block_table[remote_block.previous_hash]
+                # if length of forked remote subchain > forked local subchain, replace subchain
+                if remote_subchain_len > len(self.chain) - fork_point - 1:
+                    print(f"fork_point: {fork_point}")
+                    remote_idx = len(remote_chain) - remote_subchain_len
+                    # Remove indice of replaced local subchain (keep fork point)
+                    for j in range(fork_point + 1, len(self.chain)):
+                        del self.block_table[self.chain[j].hash()]
+                    self.chain = self.chain[:fork_point + 1]
+                    self.chain.extend(remote_chain[remote_idx:])
+                    # Add indice of merged remote subchain
+                    for j in range(remote_idx, len(remote_chain)):
+                        self.block_table[remote_chain[j].hash()] = (fork_point + 1) + (j - remote_idx)
+                    return True
+        return False
 
 if __name__ == '__main__':
-    blockchain = Blockchain()
-    database = [b"hello", b"goodbye", b"test", b"DATA here"]
+    # print("1st. test basic mining function")
+    # blockchain = Blockchain()
+    # database = [b"hello", b"goodbye", b"test", b"DATA here"]
+    # for data in database:
+    #     mined_block = blockchain.mine(Block(data=data))
+    #     blockchain.add(mined_block)
+    # for block in blockchain.chain:
+    #     print(block)
+    # print(blockchain.isValid())
 
-    for data in database:
-        mined_block = blockchain.mine(Block(data=data))
-        blockchain.add(mined_block)
+    # print("2nd. test isAttachableBlock() function")
+    # last_block = blockchain.chain[-1]
+    # blockchain.remove(blockchain.chain[-1])
+    # print(blockchain.isAttachableBlock(last_block))
 
-    for block in blockchain.chain:
+    # print("3rd. test immutability")
+    # blockchain.chain[2].data = b"NEW DATA"
+    # blockchain.mine(blockchain.chain[2])
+    # print(blockchain.isValid())
+
+    print("4th. test merge function")
+    base_database = [b"hello", b"goodbye"]
+    bc1 = Blockchain()
+    database1 = [b"test", b"DATA here"]
+    for data in base_database:
+        mined_block = bc1.mine(Block(data=data))
+        bc1.add(mined_block)
+
+    bc2 = Blockchain()
+    bc2.chain = list(bc1.chain)
+    bc2.block_table = bc1.block_table.copy()
+    database2 = [b"changed", b"changed DATA here", b"I'm longer than the other chain"]
+
+    for data in database1:
+        mined_block = bc1.mine(Block(data=data))
+        bc1.add(mined_block)
+
+    for block in bc1.chain:
         print(block)
 
-    print(blockchain.isValid())
+    for data in database2:
+        mined_block = bc2.mine(Block(data=data))
+        bc2.add(mined_block)
 
-    # encoded_block = blockchain.chain[-1].encode()
-    # print(encoded_block)
-    # print(Block.decode(encoded_block))
+    for block in bc2.chain:
+        print(block)
 
-    last_block = blockchain.chain[-1]
-    blockchain.remove(blockchain.chain[-1])
-    print(blockchain.isBlockValid(last_block))
-
-    blockchain.chain[2].data = b"NEW DATA"
-    blockchain.mine(blockchain.chain[2])
-    print(blockchain.isValid())
+    bc1.mergeChain(bc2.chain)
+    print(f"merged list is valid? {bc1.isValid()}")
+    print("merged list")
+    for block in bc1.chain:
+        print(block)
