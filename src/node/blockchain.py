@@ -14,39 +14,49 @@ def hash(*args):
 # The "block" of the blockchain. Points to the previous block by its unique hash in previous_hash.
 class Block():
     def __init__(self, previous_hash="0"*64, data=None, nonce=0):
+        if isinstance(data, str):
+            data = data.encode('utf-8')
+
         self.data = data
         self.previous_hash = previous_hash
         self.nonce = nonce
 
     # Compute a sha256 hash for the block's data.
     def hash(self):
+        data = self.data
+        if isinstance(data, str):
+            data = data.encode('utf-8')
         return hash(
             self.previous_hash,
-            self.data,
+            data,
             self.nonce
         )
 
     def encode(self):
-        format_string = '32sI'  # 32-byte SHA256, 4-byte unsigned int
-        header = struct.pack(format_string, self.previous_hash.encode('utf-8'), self.nonce)
+        format_string = '64sII'  # 64-byte SHA256, 4-byte unsigned int, 4-byte unsigned int
         data = self.data
         if isinstance(data, str):
             data = data.encode('utf-8')
+        header = struct.pack(format_string, self.previous_hash.encode('utf-8'), self.nonce, len(data))
         return header + data
     
     @classmethod
     def decode(cls, encoded_block):
-        format_string = '32sI'
+        format_string = '64sII'
         header_size = struct.calcsize(format_string)
-        prev_hs, nonce = struct.unpack(format_string, encoded_block[:header_size])
-        return cls(prev_hs, encoded_block[header_size:], nonce)
+        prev_hs, nonce, _ = struct.unpack(format_string, encoded_block[:header_size])
+        return cls(prev_hs.decode(), encoded_block[header_size:], nonce)
 
     # Returns a string of the block's data. Useful for diagnostic print statements.
     def __str__(self):
+        data = self.data
+        if isinstance(data, str):
+            data = data.encode('utf-8')
+
         return str("Block : Hash: %s\nPrevious: %s\nData: %s\nNonce: %s\n" %(
             self.hash(),
             self.previous_hash,
-            self.data,
+            data,
             self.nonce
             )
         )
@@ -75,9 +85,11 @@ class Blockchain():
     # find the nonce of the block that satisfies the difficulty and add to chain
     def mine(self, block):
         # attempt to get the hash of the previous block.
+        if len(self.chain) > 0:
+            block.previous_hash = self.chain[-1].hash()
         # this should raise an IndexError if this is the first block.
-        try: block.previous_hash = self.chain[-1].hash()
-        except IndexError: pass
+        # try: block.previous_hash = self.chain[-1].hash()
+        # except IndexError: pass
 
         # loop until nonce that satisifeis difficulty is found
         while True:
@@ -89,6 +101,8 @@ class Blockchain():
 
     # check if a block is valid to attach
     def isAttachableBlock(self, block):
+        if len(self.chain) == 0:
+            return True
         cur_hash = block.hash()
         return self.chain[-1].hash() == block.previous_hash and cur_hash[:self.difficulty] == "0" * self.difficulty
 
@@ -105,7 +119,6 @@ class Blockchain():
         return True
     
     # merge the remote chain into local chain by finding the fork point
-    # TODO: test this function
     def mergeChain(self, remote_chain):
         for i, remote_block in enumerate(reversed(remote_chain)):
             # if the last block in the remote subchain exists in the local chain, 
@@ -128,9 +141,30 @@ class Blockchain():
                         self.block_table[remote_chain[j].hash()] = (fork_point + 1) + (j - remote_idx)
                     return True
         return False
+    
+    def encode(self):
+        res = b''
+        for block in self.chain:
+            res += block.encode()
+        return res
+    
+    @classmethod
+    def decode(cls, encoded_blockchain):
+        format_string = '64sII'
+        header_size = struct.calcsize(format_string)
+        bc = cls([])
+        start = 0
+        while start < len(encoded_blockchain):
+            prev_hs, nonce, data_size = struct.unpack(format_string, encoded_blockchain[start:start + header_size])
+            block = Block(prev_hs.decode(), encoded_blockchain[start + header_size:start + header_size + data_size], nonce)
+            if not bc.isAttachableBlock(block):
+                raise RuntimeError("The encoded blockchain is not valid")
+            bc.add(block)
+            start += header_size + data_size
+        return bc
 
 if __name__ == '__main__':
-    # print("1st. test basic mining function")
+    # print("test basic mining function")
     # blockchain = Blockchain()
     # database = [b"hello", b"goodbye", b"test", b"DATA here"]
     # for data in database:
@@ -140,17 +174,20 @@ if __name__ == '__main__':
     #     print(block)
     # print(blockchain.isValid())
 
-    # print("2nd. test isAttachableBlock() function")
+    # print("test isAttachableBlock() function")
     # last_block = blockchain.chain[-1]
     # blockchain.remove(blockchain.chain[-1])
     # print(blockchain.isAttachableBlock(last_block))
 
-    # print("3rd. test immutability")
+    # print("test Block's encode and decode functions")
+    # print(Block.decode(last_block.encode()))
+
+    # print("test immutability")
     # blockchain.chain[2].data = b"NEW DATA"
     # blockchain.mine(blockchain.chain[2])
     # print(blockchain.isValid())
 
-    print("4th. test merge function")
+    print("test merge function")
     base_database = [b"hello", b"goodbye"]
     bc1 = Blockchain()
     database1 = [b"test", b"DATA here"]
@@ -167,18 +204,23 @@ if __name__ == '__main__':
         mined_block = bc1.mine(Block(data=data))
         bc1.add(mined_block)
 
-    for block in bc1.chain:
-        print(block)
+    # for block in bc1.chain:
+    #     print(block)
 
     for data in database2:
         mined_block = bc2.mine(Block(data=data))
         bc2.add(mined_block)
 
-    for block in bc2.chain:
-        print(block)
+    # for block in bc2.chain:
+    #     print(block)
 
     bc1.mergeChain(bc2.chain)
     print(f"merged list is valid? {bc1.isValid()}")
-    print("merged list")
+    print("merged list: ")
     for block in bc1.chain:
+        print(block)
+
+    print("test Blockchain's encode and decode")
+    decoded_bc = Blockchain.decode(bc1.encode())
+    for block in decoded_bc.chain:
         print(block)
