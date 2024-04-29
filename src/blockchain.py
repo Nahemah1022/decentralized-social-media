@@ -148,6 +148,10 @@ class Blockchain():
             res += block.encode()
         return res
     
+    def print(self):
+        for block in self.chain:
+            print(block)
+    
     @classmethod
     def decode(cls, encoded_blockchain):
         format_string = '64sII'
