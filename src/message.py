@@ -19,8 +19,11 @@ class Message:
         header_size = struct.calcsize(HEADER_FORMAT)
         header = sock.recv(header_size)
 
+        if len(header) == 0:
+            raise ConnectionAbortedError("Connection closed by the other end of the socket")
+
         if len(header) < header_size:
-            raise ValueError("Incomplete header received")
+            raise ValueError("Incomplete header received", len(header))
 
         type_char, payload_size = struct.unpack(HEADER_FORMAT, header)
         payload = bytearray()

@@ -68,14 +68,17 @@ class Blockchain():
     difficulty = 4
 
     # restarts a new blockchain or the existing one upon initialization
-    def __init__(self, chain=[]):
+    def __init__(self, chain=None):
+        if chain is None:
+            chain = []  # This creates a new list for each instance
         self.chain = chain
         self.block_table = {} # [(mined_block_hash, index_of_the_block_in_chain)]
 
     # add a new block to the chain
     def add(self, block):
-        self.block_table[block.hash()] = len(self.chain)
-        self.chain.append(block)
+        if self.isAttachableBlock(block):
+            self.block_table[block.hash()] = len(self.chain)
+            self.chain.append(block)
 
     # remove a block from the chain
     def remove(self, block):
@@ -129,7 +132,6 @@ class Blockchain():
                 fork_point = self.block_table[remote_block.previous_hash]
                 # if length of forked remote subchain > forked local subchain, replace subchain
                 if remote_subchain_len > len(self.chain) - fork_point - 1:
-                    print(f"fork_point: {fork_point}")
                     remote_idx = len(remote_chain) - remote_subchain_len
                     # Remove indice of replaced local subchain (keep fork point)
                     for j in range(fork_point + 1, len(self.chain)):
