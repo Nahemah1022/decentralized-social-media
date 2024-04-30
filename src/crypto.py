@@ -7,7 +7,7 @@ from cryptography.exceptions import InvalidSignature
 
 SIGNATURE_LEN = 256
 
-def generate_rsa_key_pair(private_key_file, public_key_file, key_size=2048):
+def generate_rsa_key_pair(private_key_file='private_key.pem', public_key_file='public_key.pem', key_size=2048):
     private_key = rsa.generate_private_key(
         public_exponent=65537,
         key_size=key_size,

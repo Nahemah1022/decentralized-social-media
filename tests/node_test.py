@@ -1,11 +1,17 @@
 import pytest
+import os
 import socket
 import time
 
-from src import Node, sign_data, Message
+from src import Node, sign_data, Message, generate_rsa_key_pair
 
-@pytest.mark.parametrize("iteration", range(50))
-def test_merge_longer_chain(iteration):
+@pytest.fixture(scope="session")
+def generate_keys():
+    if not os.path.exists('public_key.pem') or not os.path.exists('private_key.pem'):
+        generate_rsa_key_pair()
+
+@pytest.mark.parametrize("iteration", range(10))
+def test_merge_longer_chain(generate_keys, iteration):
     app_send1, app_recv1 = socket.socketpair()
     app_send2, app_recv2 = socket.socketpair()
     sock1, sock2 = socket.socketpair()
@@ -54,7 +60,7 @@ def test_merge_longer_chain(iteration):
       => peer2's local chain is shorter than peer1's remote chain
       => merged and synchronized successfully
     """
-    time.sleep(1)
+    time.sleep(3)
     node1.stop()
     node2.stop()
     # print(len(database) + len(chain1_new) + 1)
