@@ -4,12 +4,13 @@ import time
 
 from src import Node, sign_data, Message
 
-def test_merge_longer_chain():
+@pytest.mark.parametrize("iteration", range(50))
+def test_merge_longer_chain(iteration):
     app_send1, app_recv1 = socket.socketpair()
     app_send2, app_recv2 = socket.socketpair()
     sock1, sock2 = socket.socketpair()
-    node1 = Node([app_recv1], enable_mining=True, name="node1")
-    node2 = Node([app_recv2], enable_mining=True, name="node2")
+    node1 = Node([app_recv1], enable_mining=True, name="node1", log_filepath="node1")
+    node2 = Node([app_recv2], enable_mining=True, name="node2", log_filepath="node2")
 
     # base blocks in both peers
     database = [b"hello", b"goodbye", b"test"]
@@ -53,19 +54,21 @@ def test_merge_longer_chain():
       => peer2's local chain is shorter than peer1's remote chain
       => merged and synchronized successfully
     """
-    time.sleep(3)
-    # assert node2.bc.isValid()
-    # assert len(node2.bc.chain) == len(database) + len(chain1_new) + 1
-    print(len(database) + len(chain1_new) + 1)
-    print(len(node1.bc.chain))
-    print(len(node2.bc.chain))
-    print(node1.bc.isValid())
-    print(node2.bc.isValid())
-    node2.bc.print()
-    print("----------------------------------")
-    node1.bc.print()
+    time.sleep(1)
     node1.stop()
     node2.stop()
+    # print(len(database) + len(chain1_new) + 1)
+    # print(len(node1.bc.chain))
+    # print(len(node2.bc.chain))
+    # print(node1.bc.isValid())
+    # print(node2.bc.isValid())
+    # print(node1.bc)
+    # print("----------------------------------")
+    # print(node2.bc)
+    assert node1.bc.isValid()
+    assert node2.bc.isValid()
+    assert len(node1.bc.chain) == len(database) + len(chain1_new) + 1
+    assert len(node2.bc.chain) == len(database) + len(chain1_new) + 1
 
 if __name__ == '__main__':
-    test_merge_longer_chain()
+    test_merge_longer_chain(1)

@@ -6,10 +6,15 @@ import time
 from .blockchain import Block, Blockchain
 from .message import Message
 from .crypto import SIGNATURE_LEN, verify_signature, sign_data
+from .utils import AtomicBool
 
 class Node():
-    def __init__(self, predefined_sockets=[], enable_mining=True, name="default"):
-        self.running = True
+    def __init__(self, predefined_sockets=[], enable_mining=True, name="default", log_filepath=None):
+        self.log_lock = threading.Lock()
+        self.log_file = None
+        if log_filepath:
+            self.log_file = open(f"{log_filepath}.log", 'w')
+        self.running = AtomicBool(True)
         self.name = name
         self.bc = Blockchain()
         self.peer_socket_lock = threading.Lock()
@@ -20,20 +25,24 @@ class Node():
         self.pool_lock = threading.Lock()
         self.pool_has_job_cond = threading.Condition(self.pool_lock)
 
-        self.enable_mining = enable_mining
-        if self.enable_mining:
-            self.worker_thread = threading.Thread(target=self._mine_worker)
-            self.worker_thread.start()
+        self.enable_mining = AtomicBool(enable_mining)
+        self.worker_thread = threading.Thread(target=self._mine_worker)
+        self.worker_thread.start()
         self.event_thread = threading.Thread(target=self._recv_handler)
         self.event_thread.start()
 
     def _log(self, *args):
         # return
-        if self.name != "node1":
-            return
-        print(f"{self.name}:")
-        for arg in args:
-            print(f"\t{arg}")
+        # if self.name != "node1":
+        #     return
+        with self.log_lock:
+            if self.log_file:
+                for arg in args:
+                    print(f"{arg}", file=self.log_file)
+            else:
+                print(f"{self.name}:")
+                for arg in args:
+                    print(f"{arg}")
 
     def _recv_handler(self):
         """
@@ -46,13 +55,16 @@ class Node():
         5. [PULL REQUEST](addr) => __push_local_chain()
         6. [CHAIN](addr) => merge remote chain
         """
-        while self.running:
+        while True:
             with self.has_peer_cond:
                 while len(self.peer_sockets) == 0:
                     self.has_peer_cond.wait()
-                    if not self.running:
+                    if not self.running.get():
                         return
                 ready_to_read, _, _ = select.select(list(self.peer_sockets), [], [], 0.1)
+            # nothing to read and asked to stop => terminate
+            if len(ready_to_read) == 0 and not self.running.get():
+                return
             for sock in ready_to_read:
                 recv_msg = Message.recv_from(sock)
                 # try:
@@ -67,10 +79,12 @@ class Node():
                 elif recv_msg.type_char == b'N':
                     signature = recv_msg.payload[:SIGNATURE_LEN]
                     block_data = recv_msg.payload[SIGNATURE_LEN:]
+                    self._log(block_data)
                     self.__new_pending_block(signature, block_data)
                 elif recv_msg.type_char == b'A':
                     signature = recv_msg.payload[:SIGNATURE_LEN]
                     block_data = recv_msg.payload[SIGNATURE_LEN:]
+                    self._log(block_data)
                     self.__new_pending_block(signature, block_data)
 
                     # forward the post from app to all peers
@@ -81,6 +95,7 @@ class Node():
                         peer_sock.sendall(forward_msg.pack())
                 elif recv_msg.type_char == b'M':
                     block = Block.decode(recv_msg.payload)
+                    self._log(block.data)
                     self.__mined_block(block, sock)
                 elif recv_msg.type_char == b'P':
                     with self.pool_lock:
@@ -88,27 +103,38 @@ class Node():
                     sock.sendall(local_chain_msg.pack())
                 elif recv_msg.type_char == b'C':
                     remote_bc = Blockchain.decode(recv_msg.payload)
+                    self._log(remote_bc)
                     with self.pool_lock:
-                        reslut = self.bc.mergeChain(remote_bc.chain)
-                    self._log("remote chain merged" if reslut else "remote is shorter, reject to merge")
+                        fork_point = self.bc.mergeChain(remote_bc.chain)
+                        # if blocks are acquired from remote, remove them from mempool to avoid to mine them again
+                        for remote_idx in range(fork_point, len(self.bc.chain)):
+                            remote_block = self.bc.chain[remote_idx]
+                            if remote_block.data in self.mempool:
+                                self.mempool.remove(remote_block.data)
+                    self._log("remote chain merged" if fork_point != -1 else "remote is shorter, reject to merge")
                     # print(f"isValid: {self.bc.isValid()}")
                 else:
                     raise TypeError("Invalid message type")
+                with self.pool_lock:
+                    self._log(self.bc)
+                    self._log(self.mempool)
+                    self._log("-------------")
 
     def _mine_worker(self):
-        while self.running:
+        while True:
             with self.pool_has_job_cond:
                 while len(self.mempool) == 0:
-                    self.pool_has_job_cond.wait()
-                    if not self.running:
+                    if not self.enable_mining.get():
                         return
+                    self.pool_has_job_cond.wait()
                 pending_block_data = next(iter(self.mempool))
 
             mined_block = self.bc.mine(Block(data=pending_block_data))
+            self._log(f"# mined a block: {pending_block_data}")
             is_first = False
             with self.pool_lock:
                 # otherwise, the block might have already been mined and propagates to this node
-                if pending_block_data in self.mempool:
+                if pending_block_data in self.mempool and self.bc.isAttachableBlock(mined_block):
                     is_first = True
                     self.mempool.remove(pending_block_data)
                     self.bc.add(mined_block)
@@ -119,21 +145,23 @@ class Node():
                     peer_sock.sendall(mined_block_msg.pack())
 
     def stop(self):
-        self.running = False
+        self.enable_mining.set(False)
+        self.running.set(False)
         # invoke all conditional waiting threads
         with self.pool_has_job_cond:
             self.pool_has_job_cond.notify_all()
         with self.has_peer_cond:
             self.has_peer_cond.notify_all()
+        self.worker_thread.join()
+        # print(f"remaining pending blocks: {len(self.mempool)}")
         self.event_thread.join()
-        if self.enable_mining:
-            self.worker_thread.join()
     
     def __del__(self):
         self.stop()
 
     # add/remove the peer in local graph
     def _peer_join(self, sock):
+        self._log(f"# peer connected at {sock}")
         with self.has_peer_cond:
             self.peer_sockets.add(sock)
             self.has_peer_cond.notify(1)

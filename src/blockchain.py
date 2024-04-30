@@ -121,8 +121,11 @@ class Blockchain():
 
         return True
     
-    # merge the remote chain into local chain by finding the fork point
     def mergeChain(self, remote_chain):
+        """
+        merge the remote chain into local chain by finding the fork point
+        return the fork point's index if any; otherwise -1
+        """
         for i, remote_block in enumerate(reversed(remote_chain)):
             # if the last block in the remote subchain exists in the local chain, 
             # it means local chain must be longer than remote chain => nothing to merge
@@ -141,8 +144,8 @@ class Blockchain():
                     # Add indice of merged remote subchain
                     for j in range(remote_idx, len(remote_chain)):
                         self.block_table[remote_chain[j].hash()] = (fork_point + 1) + (j - remote_idx)
-                    return True
-        return False
+                    return fork_point
+        return -1
     
     def encode(self):
         res = b''
@@ -150,9 +153,15 @@ class Blockchain():
             res += block.encode()
         return res
     
-    def print(self):
-        for block in self.chain:
-            print(block)
+    def __str__(self, full=False):
+        res = f"isValid? {self.isValid()}\n"
+        if full:
+            for block in self.chain:
+                res += block.__str__()
+        else:
+            for block in self.chain:
+                res += block.data.decode() + "->"
+        return res
     
     @classmethod
     def decode(cls, encoded_blockchain):
