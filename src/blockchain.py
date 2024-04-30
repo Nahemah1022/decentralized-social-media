@@ -73,17 +73,20 @@ class Blockchain():
             chain = []  # This creates a new list for each instance
         self.chain = chain
         self.block_table = {} # [(mined_block_hash, index_of_the_block_in_chain)]
+        self.block_hash_pool = set() # records all block's pure data hash
 
     # add a new block to the chain
     def add(self, block):
         if self.isAttachableBlock(block):
             self.block_table[block.hash()] = len(self.chain)
             self.chain.append(block)
+            self.block_hash_pool.add(hash(block.data))
 
     # remove a block from the chain
     def remove(self, block):
         del self.block_table[block.hash()]
         self.chain.remove(block)
+        self.block_hash_pool.remove(hash(block.data))
 
     # find the nonce of the block that satisfies the difficulty and add to chain
     def mine(self, block):
@@ -124,7 +127,9 @@ class Blockchain():
     def mergeChain(self, remote_chain):
         """
         merge the remote chain into local chain by finding the fork point
-        return the fork point's index if any; otherwise -1
+        return (fork_point: INT, discarded_blocks: List[BLock])
+            - fork_point: the fork point's index if any; otherwise -1
+            - discarded_blocks: list of blocks that originally in local chain but get discarded after merge
         """
         for i, remote_block in enumerate(reversed(remote_chain)):
             # if the last block in the remote subchain exists in the local chain, 
@@ -135,17 +140,20 @@ class Blockchain():
                 fork_point = self.block_table[remote_block.previous_hash]
                 # if length of forked remote subchain > forked local subchain, replace subchain
                 if remote_subchain_len > len(self.chain) - fork_point - 1:
+                    discarded_blocks = self.chain[fork_point + 1:]
                     remote_idx = len(remote_chain) - remote_subchain_len
                     # Remove indice of replaced local subchain (keep fork point)
                     for j in range(fork_point + 1, len(self.chain)):
                         del self.block_table[self.chain[j].hash()]
+                        self.block_hash_pool.remove(hash(self.chain[j].data))
                     self.chain = self.chain[:fork_point + 1]
                     self.chain.extend(remote_chain[remote_idx:])
                     # Add indice of merged remote subchain
                     for j in range(remote_idx, len(remote_chain)):
                         self.block_table[remote_chain[j].hash()] = (fork_point + 1) + (j - remote_idx)
-                    return fork_point
-        return -1
+                        self.block_hash_pool.add(hash(remote_chain[j].data))
+                    return fork_point, discarded_blocks
+        return -1, []
     
     def encode(self):
         res = b''

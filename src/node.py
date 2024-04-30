@@ -3,7 +3,7 @@ import select
 import threading
 import time
 
-from .blockchain import Block, Blockchain
+from .blockchain import Block, Blockchain, hash
 from .message import Message
 from .crypto import SIGNATURE_LEN, verify_signature, sign_data
 from .utils import AtomicBool
@@ -32,7 +32,7 @@ class Node():
         self.event_thread.start()
 
     def _log(self, *args):
-        # return
+        return
         # if self.name != "node1":
         #     return
         with self.log_lock:
@@ -105,12 +105,17 @@ class Node():
                     remote_bc = Blockchain.decode(recv_msg.payload)
                     self._log(remote_bc)
                     with self.pool_lock:
-                        fork_point = self.bc.mergeChain(remote_bc.chain)
+                        fork_point, discarded_blocks = self.bc.mergeChain(remote_bc.chain)
                         # if blocks are acquired from remote, remove them from mempool to avoid to mine them again
                         for remote_idx in range(fork_point, len(self.bc.chain)):
                             remote_block = self.bc.chain[remote_idx]
                             if remote_block.data in self.mempool:
                                 self.mempool.remove(remote_block.data)
+                        # re-mine discarded blocks
+                        self._log(f"# hash pool: {self.bc.block_hash_pool}")
+                        for block in discarded_blocks:
+                            if hash(block.data) not in self.bc.block_hash_pool:
+                                self.mempool.add(block.data)
                     self._log("remote chain merged" if fork_point != -1 else "remote is shorter, reject to merge")
                     # print(f"isValid: {self.bc.isValid()}")
                 else:
@@ -176,8 +181,10 @@ class Node():
             print("invalid signature")
             return False
         with self.pool_lock:
+            # discard any duplicated block
+            if hash(data) in self.bc.block_hash_pool:
+                return
             self.mempool.add(data)
-            # print(self.mempool)
             self.pool_has_job_cond.notify(1)
 
     # validate the block, and add it to local blockchain
