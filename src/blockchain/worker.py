@@ -73,10 +73,7 @@ class Worker():
                 #     with self.peer_socket_lock:
                 #         self.peer_sockets.remove(sock)
                 self._log(recv_msg.type_char)
-                if recv_msg.type_char == b'U':
-                    # self.__peer_update(recv_msg.payload)
-                    pass
-                elif recv_msg.type_char == b'N':
+                if recv_msg.type_char == b'N':
                     public_key_msg, data = Message.unpack(recv_msg.payload)
                     public_key_bytes = public_key_msg.payload
                     signature = data[:SIGNATURE_LEN]
