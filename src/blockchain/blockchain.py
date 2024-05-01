@@ -47,6 +47,11 @@ class Block():
         prev_hs, nonce, _ = struct.unpack(format_string, encoded_block[:header_size])
         return cls(prev_hs.decode(), encoded_block[header_size:], nonce)
 
+    def __eq__(self, other):
+        if not isinstance(other, Block):
+            return False
+        return self.data == other.data and self.previous_hash == other.previous_hash
+
     # Returns a string of the block's data. Useful for diagnostic print statements.
     def __str__(self):
         data = self.data
@@ -160,9 +165,17 @@ class Blockchain():
         for block in self.chain:
             res += block.encode()
         return res
-    
+
+    def __eq__(self, other):
+        if not isinstance(other, Blockchain):
+            return False
+        for i in range(len(self.chain)):
+            if self.chain[i] != other.chain[i]:
+                return False
+        return True
+
     def __str__(self, full=False):
-        res = f"isValid? {self.isValid()}\n"
+        res = f"[isValid? {self.isValid()}] "
         if full:
             for block in self.chain:
                 res += block.__str__()
