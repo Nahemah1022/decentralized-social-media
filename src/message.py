@@ -15,6 +15,19 @@ class Message:
         return header + self.payload
 
     @classmethod
+    def unpack(cls, byte_data):
+        header_size = struct.calcsize(HEADER_FORMAT)
+        header = byte_data[:header_size]
+
+        type_char, size = struct.unpack(HEADER_FORMAT, header)
+        if len(byte_data) < header_size + size:
+            raise ValueError("given byte_data's size is less than the size specified in header")
+        payload = byte_data[header_size:header_size + size]
+        rest = byte_data[header_size + size:]
+
+        return cls(type_char.decode('utf-8'), payload), rest
+
+    @classmethod
     def recv_from(cls, sock):
         header_size = struct.calcsize(HEADER_FORMAT)
         header = sock.recv(header_size)

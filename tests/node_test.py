@@ -11,7 +11,7 @@ def generate_keys():
         generate_rsa_key_pair()
 
 @pytest.mark.parametrize("iteration", range(10))
-def test_merge_longer_chain(generate_keys, iteration):
+def test_merge_longer_chain(iteration):
     app_send1, app_recv1 = socket.socketpair()
     app_send2, app_recv2 = socket.socketpair()
     sock1, sock2 = socket.socketpair()
@@ -20,9 +20,12 @@ def test_merge_longer_chain(generate_keys, iteration):
 
     # base blocks in both peers
     database = [b"hello", b"goodbye", b"test"]
+    with open('public_key.pem', 'rb') as public_key_file:
+        public_key_bytes = public_key_file.read()
+    public_key_msg = Message('K', public_key_bytes).pack()
     for data in database:
         signature = sign_data(data, 'private_key.pem')
-        msg = Message('A', signature + data)
+        msg = Message('A', public_key_msg + signature + data)
         app_send1.sendall(msg.pack())
         app_send2.sendall(msg.pack())
     
@@ -32,7 +35,7 @@ def test_merge_longer_chain(generate_keys, iteration):
     chain1_new = [b"chain1_1", b"chain1_2", b"chain1_3", b"chain1_4", b"chain1_5"]
     for data in chain1_new:
         signature = sign_data(data, 'private_key.pem')
-        msg = Message('A', signature + data)
+        msg = Message('A', public_key_msg + signature + data)
         app_send1.sendall(msg.pack())
 
     # wait for peer1 mining complete 
@@ -45,7 +48,7 @@ def test_merge_longer_chain(generate_keys, iteration):
     # send a new post to node2
     post = b"post block"
     signature = sign_data(post, 'private_key.pem')
-    msg = Message('A', signature + post)
+    msg = Message('A', public_key_msg + signature + post)
     app_send2.sendall(msg.pack())
 
     """

@@ -5,7 +5,7 @@ import time
 
 from .blockchain import Block, Blockchain, hash
 from ..message import Message
-from ..crypto import SIGNATURE_LEN, verify_signature, sign_data
+from ..crypto import SIGNATURE_LEN, RSA_KEY_SIZE, verify_signature, sign_data
 from ..utils import AtomicBool
 
 class Node():
@@ -77,15 +77,19 @@ class Node():
                     # self.__peer_update(recv_msg.payload)
                     pass
                 elif recv_msg.type_char == b'N':
-                    signature = recv_msg.payload[:SIGNATURE_LEN]
-                    block_data = recv_msg.payload[SIGNATURE_LEN:]
+                    public_key_msg, data = Message.unpack(recv_msg.payload)
+                    public_key_bytes = public_key_msg.payload
+                    signature = data[:SIGNATURE_LEN]
+                    block_data = data[SIGNATURE_LEN:]
                     self._log(block_data)
-                    self.__new_pending_block(signature, block_data)
+                    self.__new_pending_block(signature, public_key_bytes, block_data)
                 elif recv_msg.type_char == b'A':
-                    signature = recv_msg.payload[:SIGNATURE_LEN]
-                    block_data = recv_msg.payload[SIGNATURE_LEN:]
+                    public_key_msg, data = Message.unpack(recv_msg.payload)
+                    public_key_bytes = public_key_msg.payload
+                    signature = data[:SIGNATURE_LEN]
+                    block_data = data[SIGNATURE_LEN:]
                     self._log(block_data)
-                    self.__new_pending_block(signature, block_data)
+                    self.__new_pending_block(signature, public_key_bytes, block_data)
 
                     # forward the post from app to all peers
                     forward_msg = Message('N', recv_msg.payload)
@@ -176,8 +180,8 @@ class Node():
             self.peer_sockets.remove(sock)
 
     # validate the signature, and push to mempool
-    def __new_pending_block(self, signature, data):
-        if not verify_signature(data, signature, 'public_key.pem'):
+    def __new_pending_block(self, signature, public_key_bytes, data):
+        if not verify_signature(data, signature, public_key_bytes):
             print("invalid signature")
             return False
         with self.pool_lock:
