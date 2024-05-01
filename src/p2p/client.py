@@ -28,20 +28,44 @@
 
 # p2pnode.py
 import socket
-import json
+import select
 from threading import Thread
 import requests
 
+from ..utils import AtomicBool
+from ..message import Message
 
-class P2PNode:
-    def __init__(self, tracker_host, tracker_port):
-        self.peer_addrs = []
+class P2PClient:
+    def __init__(self, host, port, tracker_host, tracker_port):
+        self.running = AtomicBool(True)
         self.tracker_addr = (tracker_host, tracker_port)
         self.peer_sockets = {}  # Stores TCP connections to peers
 
         self.tracker_socket = self.connect_to_tracker()
         self.self_addr = self.get_internal_ip()
-        self.send_message_to_tracker(self.self_addr)
+
+        self.connector_socket = self.create_server_socket(host, port)
+
+    def _event_handler(self):
+        """Receives messages from a socket."""
+        while self.running.get():
+            ready_to_read, _, _ = select.select(list(self.clients_sockets.keys()) + [self.server_socket], [], [], 0.1)
+            for sock in ready_to_read:
+                if sock is self.tracker_socket:
+                    peer_list_msg = Message.recv_from(sock)
+                    for j in range(0, len(peer_list_msg.payload), 4):
+                        ip_bytes = peer_list_msg.payload[j:j+4]
+                        ip_addr = socket.inet_ntoa(ip_bytes)
+                        # assert socket.inet_ntoa(ip_bytes) == '127.0.0.1'
+                elif sock is self.connector_socket:
+                    peer_sock, addr = sock.accept()
+
+    def create_connector_socket(self, host, port):
+        connector_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        connector_socket.bind((host, port))
+        connector_socket.listen(32)
+        self._log(f"Tracker listening on {host}:{port}")
+        return connector_socket
 
     def connect_to_tracker(self):
         """Establishes a TCP connection to the tracker."""
@@ -49,8 +73,6 @@ class P2PNode:
             tracker_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             tracker_socket.connect(self.tracker_addr)
             print("[INFO] Connected to tracker.")
-            Thread(target=self.listen_to_tracker,
-                   args=(tracker_socket,)).start()
             return tracker_socket
         except Exception as e:
             print(f"[ERROR] Failed to connect to tracker: {e}")
@@ -83,46 +105,6 @@ class P2PNode:
             except Exception as e:
                 print(f"[ERROR] Failed to send message to {peer_addr}: {e}")
 
-    def send_message_to_tracker(self, self_addr):
-        add_node = {
-            "action": "add_peer",
-            "addr": self_addr,
-        }
-        message = json.dumps(add_node)
-        self.tracker_socket.sendall(message.encode('utf-8'))
-
-    def receive_messages(self, socket):
-        """Receives messages from a socket."""
-        try:
-            while True:
-                data = socket.recv(1024)
-                if not data:
-                    break
-                message = json.loads(data.decode())
-                print(f"[INFO] Received message: {message}")
-        except Exception as e:
-            print(f"[ERROR] Error receiving messages: {e}")
-        finally:
-            socket.close()
-
-    def listen_to_tracker(self, tracker_socket):
-        """Listens for messages from the tracker."""
-        try:
-            while True:
-                data = tracker_socket.recv(1024)
-                if not data:
-                    break
-                message = json.loads(data.decode())
-                print(f"[INFO] Received message from tracker: {message}")
-                action = message.get('action')
-
-                if action == 'add_peer':
-                    self.peer_addrs = message.get('peers')
-        except Exception as e:
-            print(f"[ERROR] Error listening to tracker: {e}")
-        finally:
-            tracker_socket.close()
-
     def get_internal_ip():
         """
         Fetches the internal IP address of a Google Cloud VM instance using the metadata server.
@@ -145,4 +127,4 @@ class P2PNode:
 
 
 if __name__ == "__main__":
-    node = P2PNode("localhost", 6789)
+    node = P2PClient("localhost", 8080, "localhost", 6789)

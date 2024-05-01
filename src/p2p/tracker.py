@@ -31,6 +31,7 @@ class Tracker:
         self.event_thread.start()
 
     def _log(self, *args):
+        return
         for arg in args:
             print(arg)
 
@@ -42,29 +43,41 @@ class Tracker:
                 if sock is self.server_socket:
                     clnt_sock, addr = sock.accept() # step 1
                     # print(f"[INFO] Connection from {addr}")
-
-                    current_peer_list = b''
-                    for peer_addr in self.clients_sockets.values():
-                        current_peer_list += socket.inet_aton(peer_addr)
-                    self.clients_sockets[clnt_sock] = addr[0] # step 2
-
-                    clnt_sock.sendall(Message('L', current_peer_list).pack()) # step 3
+                    self.clients_sockets[clnt_sock] = (addr[0], None) # create a new non-registered client
                 else:
-                    recv_msg = sock.recv(1024)
-                    if recv_msg == b'':
+                    try:
+                        recv_msg = Message.recv_from(sock)
+                        if recv_msg.type_char == b'R':
+                            if len(recv_msg.payload) != 2:
+                                raise ValueError("Registration message should has 2 bytes (size of the port number)")
+                            current_peer_list = b''
+                            for peer_addr, peer_port in self.clients_sockets.values():
+                                if peer_port == None: # Don't include non-registered clients
+                                    continue
+                                current_peer_list += socket.inet_aton(peer_addr)
+                                current_peer_list += peer_port.to_bytes(2, 'big')
+                            clnt_sock.sendall(Message('L', current_peer_list).pack()) # step 3
+                            if sock not in self.clients_sockets:
+                                self._log("[ERROR] Registration from not connected client")
+                            else:
+                                self.clients_sockets[sock] = (self.clients_sockets[sock][0], int.from_bytes(recv_msg.payload, 'big'))
+                    except ConnectionAbortedError:
                         del self.clients_sockets[sock]
-                    else:
-                        raise ValueError(f"Tracker is not supposed to recieve any message except zero-byte, but got {recv_msg}")
+                    except ConnectionResetError:
+                        self._log("Connection was reset by the client.")
 
     def stop(self):
         self.running.set(False)
         self.event_thread.join()
+        self.server_socket.close()
+        for clnt_sock in self.clients_sockets:
+            clnt_sock.close()
 
     def create_server_socket(self, host, port):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.bind((host, port))
         server_socket.listen(32)
-        print(f"Tracker listening on {host}:{port}")
+        self._log(f"Tracker listening on {host}:{port}")
         return server_socket
 
 if __name__ == "__main__":

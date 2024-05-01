@@ -1,2 +1,2 @@
-from .node import *
+from .worker import *
 from .blockchain import *

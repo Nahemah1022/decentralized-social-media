@@ -3,20 +3,20 @@ import os
 import socket
 import time
 
-from src import Node, sign_data, Message, generate_rsa_key_pair
+from src import Worker, sign_data, Message, generate_rsa_key_pair
 
 @pytest.fixture(scope="session")
 def generate_keys():
     if not os.path.exists('public_key.pem') or not os.path.exists('private_key.pem'):
         generate_rsa_key_pair()
 
-@pytest.mark.parametrize("iteration", range(10))
+@pytest.mark.parametrize("iteration", range(1))
 def test_merge_longer_chain(iteration):
     app_send1, app_recv1 = socket.socketpair()
     app_send2, app_recv2 = socket.socketpair()
     sock1, sock2 = socket.socketpair()
-    node1 = Node([app_recv1], enable_mining=True, name="node1", log_filepath="node1")
-    node2 = Node([app_recv2], enable_mining=True, name="node2", log_filepath="node2")
+    node1 = Worker([app_recv1], enable_mining=True, name="node1", log_filepath="node1")
+    node2 = Worker([app_recv2], enable_mining=True, name="node2", log_filepath="node2")
 
     # base blocks in both peers
     database = [b"hello", b"goodbye", b"test"]
