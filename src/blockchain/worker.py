@@ -8,7 +8,7 @@ from ..message import Message
 from ..crypto import SIGNATURE_LEN, RSA_KEY_SIZE, verify_signature, sign_data
 from ..utils import AtomicBool
 
-class Node():
+class Worker():
     def __init__(self, predefined_sockets=[], enable_mining=True, name="default", log_filepath=None):
         self.log_lock = threading.Lock()
         self.log_file = None
@@ -73,10 +73,7 @@ class Node():
                 #     with self.peer_socket_lock:
                 #         self.peer_sockets.remove(sock)
                 self._log(recv_msg.type_char)
-                if recv_msg.type_char == b'U':
-                    # self.__peer_update(recv_msg.payload)
-                    pass
-                elif recv_msg.type_char == b'N':
+                if recv_msg.type_char == b'N':
                     public_key_msg, data = Message.unpack(recv_msg.payload)
                     public_key_bytes = public_key_msg.payload
                     signature = data[:SIGNATURE_LEN]
@@ -217,8 +214,8 @@ if __name__ == '__main__':
     # print("test recieve mined block from peer")
     # sock1, sock2 = socket.socketpair()
     # sock3, sock4 = socket.socketpair()
-    # node1 = Node([sock1, sock3], enable_mining=False, name="node1")
-    # node2 = Node([sock2], enable_mining=True, name="node2")
+    # node1 = Worker([sock1, sock3], enable_mining=False, name="node1")
+    # node2 = Worker([sock2], enable_mining=True, name="node2")
 
     # database = [b"hello", b"goodbye", b"test", b"DATA here"]
     # for data in database:
@@ -233,8 +230,8 @@ if __name__ == '__main__':
     app_send1, app_recv1 = socket.socketpair()
     app_send2, app_recv2 = socket.socketpair()
     sock1, sock2 = socket.socketpair()
-    node1 = Node([app_recv1], enable_mining=True, name="node1")
-    node2 = Node([app_recv2], enable_mining=True, name="node2")
+    node1 = Worker([app_recv1], enable_mining=True, name="node1")
+    node2 = Worker([app_recv2], enable_mining=True, name="node2")
 
     # base blocks in both peers
     database = [b"hello", b"goodbye", b"test"]

@@ -28,29 +28,67 @@
 
 # p2pnode.py
 import socket
-import json
-from threading import Thread
+import select
+import threading
 import requests
 
+from ..utils import AtomicBool
+from ..message import Message
 
-class P2PNode:
-    def __init__(self, tracker_host, tracker_port):
-        self.peer_addrs = []
+class P2PClient:
+    def __init__(self, host, port, tracker_host, tracker_port):
+        self.running = AtomicBool(True)
         self.tracker_addr = (tracker_host, tracker_port)
-        self.peer_sockets = {}  # Stores TCP connections to peers
+        self.peer_sockets = set()  # Stores TCP connections to peers
 
+        # 1st. create connector socket
+        self.connector_socket = self.create_connector_socket(host, port)
+        # 2nd. connect to tracker
         self.tracker_socket = self.connect_to_tracker()
-        self.self_addr = self.get_internal_ip()
-        self.send_message_to_tracker(self.self_addr)
+        # 3rd. submit registration to tracker with the connector port
+        self.event_thread = threading.Thread(target=self._event_handler)
+        self.event_thread.start()
+        self.tracker_socket.sendall(Message('R', port.to_bytes(2, 'big')).pack())
+
+        # self.self_addr = self.get_internal_ip()
+
+    def _event_handler(self):
+        """Receives messages from a socket."""
+        while self.running.get():
+            ready_to_read, _, _ = select.select([self.tracker_socket, self.connector_socket], [], [], 0.1)
+            for sock in ready_to_read:
+                # At the beginning, recieve and connect to the list of peers from tracker
+                if sock is self.tracker_socket:
+                    peer_list_msg = Message.recv_from(sock)
+                    if peer_list_msg.type_char != b'L':
+                        raise TypeError("Client recieve message other than type `L` from tracker")
+                    for j in range(0, len(peer_list_msg.payload), 6):
+                        peer_ip_addr = socket.inet_ntoa(peer_list_msg.payload[j:j+4])
+                        peer_port = int.from_bytes(peer_list_msg.payload[j+4:j+6], 'big')
+                        self.connect_to_peer((peer_ip_addr, peer_port))
+                # Listen and accept incoming connections from other peers through connector socket
+                elif sock is self.connector_socket:
+                    peer_sock, addr = sock.accept()
+                    self.peer_sockets.add(peer_sock)
+
+    def create_connector_socket(self, host, port):
+        connector_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        connector_socket.bind((host, port))
+        connector_socket.listen(32)
+        self._log(f"Tracker listening on {host}:{port}")
+        return connector_socket
+
+    def _log(self, *args):
+        return
+        for arg in args:
+            print(arg)
 
     def connect_to_tracker(self):
         """Establishes a TCP connection to the tracker."""
         try:
             tracker_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             tracker_socket.connect(self.tracker_addr)
-            print("[INFO] Connected to tracker.")
-            Thread(target=self.listen_to_tracker,
-                   args=(tracker_socket,)).start()
+            self._log("[INFO] Connected to tracker.")
             return tracker_socket
         except Exception as e:
             print(f"[ERROR] Failed to connect to tracker: {e}")
@@ -61,67 +99,18 @@ class P2PNode:
         try:
             peer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             peer_socket.connect((peer_addr[0], peer_addr[1]))
-            self.peer_sockets[peer_addr] = peer_socket
-            print(f"[INFO] Connected to peer at {peer_addr}.")
-            Thread(target=self.receive_messages, args=(peer_socket,)).start()
+            self._log(f"[INFO] Connected to peer at {peer_addr}.")
+            self.peer_sockets.add(peer_socket)
         except Exception as e:
             print(f"[ERROR] Failed to connect to peer {peer_addr}: {e}")
 
-    def disconnect_from_peer(self, peer_addr):
-        """Closes the TCP connection to a peer."""
-        peer_socket = self.peer_sockets.pop(peer_addr, None)
-        if peer_socket:
-            peer_socket.close()
-            print(f"[INFO] Disconnected from peer at {peer_addr}.")
-
-    def send_message(self, peer_addr, message):
-        """Sends a message to a specified peer via TCP."""
-        peer_socket = self.peer_sockets.get(peer_addr)
-        if peer_socket:
-            try:
-                peer_socket.sendall(json.dumps(message).encode())
-            except Exception as e:
-                print(f"[ERROR] Failed to send message to {peer_addr}: {e}")
-
-    def send_message_to_tracker(self, self_addr):
-        add_node = {
-            "action": "add_peer",
-            "addr": self_addr,
-        }
-        message = json.dumps(add_node)
-        self.tracker_socket.sendall(message.encode('utf-8'))
-
-    def receive_messages(self, socket):
-        """Receives messages from a socket."""
-        try:
-            while True:
-                data = socket.recv(1024)
-                if not data:
-                    break
-                message = json.loads(data.decode())
-                print(f"[INFO] Received message: {message}")
-        except Exception as e:
-            print(f"[ERROR] Error receiving messages: {e}")
-        finally:
-            socket.close()
-
-    def listen_to_tracker(self, tracker_socket):
-        """Listens for messages from the tracker."""
-        try:
-            while True:
-                data = tracker_socket.recv(1024)
-                if not data:
-                    break
-                message = json.loads(data.decode())
-                print(f"[INFO] Received message from tracker: {message}")
-                action = message.get('action')
-
-                if action == 'add_peer':
-                    self.peer_addrs = message.get('peers')
-        except Exception as e:
-            print(f"[ERROR] Error listening to tracker: {e}")
-        finally:
-            tracker_socket.close()
+    def stop(self):
+        self.running.set(False)
+        for peer_sock in self.peer_sockets:
+            peer_sock.close()
+        self.event_thread.join()
+        self.connector_socket.close()
+        self.tracker_socket.close()
 
     def get_internal_ip():
         """
@@ -145,4 +134,4 @@ class P2PNode:
 
 
 if __name__ == "__main__":
-    node = P2PNode("localhost", 6789)
+    node = P2PClient("localhost", 8080, "localhost", 6789)

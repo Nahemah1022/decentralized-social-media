@@ -14,95 +14,72 @@
 
 # tracker.py
 import socket
-import json
-from threading import Thread
+import select
+import threading
 
+from ..message import Message
+from ..utils import AtomicBool
 
 class Tracker:
-    def __init__(self):
-        self.clients = {}  # Maps client sockets to usernames
-        self.users = {}  # Maps usernames to public keys
+    def __init__(self, host, port):
+        self.running = AtomicBool(True)
+        self.clients_sockets = {} # Map from peer's socket to peer's address
+        # self.clients_lock = threading.Lock()
+        # self.has_client_cond = threading.Condition(self.clients_lock)
+        self.server_socket = self.create_server_socket(host, port)
+        self.event_thread = threading.Thread(target=self._event_handler)
+        self.event_thread.start()
 
-    def handle_connection(self, client_socket, addr):
+    def _log(self, *args):
+        return
+        for arg in args:
+            print(arg)
+
+    def _event_handler(self):
         """Handle each client connection in a separate thread."""
-        try:
-            while True:
-                data = client_socket.recv(1024)
-                if not data:
-                    break
-                message = json.loads(data.decode())
-                action = message.get('action')
+        while self.running.get():
+            ready_to_read, _, _ = select.select(list(self.clients_sockets.keys()) + [self.server_socket], [], [], 0.1)
+            for sock in ready_to_read:
+                if sock is self.server_socket:
+                    clnt_sock, addr = sock.accept() # step 1
+                    # print(f"[INFO] Connection from {addr}")
+                    self.clients_sockets[clnt_sock] = (addr[0], None) # create a new non-registered client
+                else:
+                    try:
+                        recv_msg = Message.recv_from(sock)
+                        if recv_msg.type_char == b'R':
+                            if len(recv_msg.payload) != 2:
+                                raise ValueError("Registration message should has 2 bytes (size of the port number)")
+                            current_peer_list = b''
+                            for peer_addr, peer_port in self.clients_sockets.values():
+                                if peer_port == None: # Don't include non-registered clients
+                                    continue
+                                current_peer_list += socket.inet_aton(peer_addr)
+                                current_peer_list += peer_port.to_bytes(2, 'big')
+                            clnt_sock.sendall(Message('L', current_peer_list).pack()) # step 3
+                            if sock not in self.clients_sockets:
+                                self._log("[ERROR] Registration from not connected client")
+                            else:
+                                self.clients_sockets[sock] = (self.clients_sockets[sock][0], int.from_bytes(recv_msg.payload, 'big'))
+                    except ConnectionAbortedError:
+                        del self.clients_sockets[sock]
+                    except ConnectionResetError:
+                        self._log("Connection was reset by the client.")
 
-                if action == 'register':
-                    response = self.register(
-                        message['username'], message['public_key'], client_socket)
-                    client_socket.sendall(json.dumps(
-                        {'action': 'register', 'success': response}).encode())
-                elif action == 'get_peers':
-                    peers = self.get_peers_addrs()
-                    client_socket.sendall(json.dumps(
-                        {'action': 'get_peers', 'peers': peers}).encode())
-                elif action == 'get_public_key':
-                    public_key = self.get_user_public_key(message['username'])
-                    client_socket.sendall(json.dumps(
-                        {'action': 'get_public_key', 'public_key': public_key}).encode())
-                elif action == 'add_peer':
-                    peers = self.get_peers_addrs().append(message.get('addr'))
-                    client_socket.sendall(json.dumps(
-                        {'action': 'add_peer', 'peers': peers}).encode())
+    def stop(self):
+        self.running.set(False)
+        self.event_thread.join()
+        self.server_socket.close()
+        for clnt_sock in self.clients_sockets:
+            clnt_sock.close()
 
-        except json.JSONDecodeError:
-            print("[ERROR] Invalid JSON received.")
-        except KeyError as e:
-            print(f"[ERROR] Missing expected key in data: {e}")
-        finally:
-            self.disconnect_client(client_socket, addr)
-
-    def register(self, username, public_key, client_socket):
-        """Registers a new node with the given username and public key."""
-        if username in self.users:
-            return False
-        self.users[username] = public_key
-        self.clients[client_socket] = username
-        return True
-
-    def get_user_public_key(self, username):
-        """Retrieves the public key associated with the given username."""
-        return self.users.get(username, None)
-
-    def get_peers_addrs(self):
-        """Returns a list of addresses for all connected peers."""
-        return [str(client.getpeername()) for client in self.clients if client]
-
-    def broadcast(self, message):
-        """Broadcasts a message to all connected peers."""
-        for client in self.clients:
-            try:
-                client.sendall(json.dumps(message).encode())
-            except:
-                continue
-
-    def disconnect_client(self, client_socket, addr):
-        """Disconnects and removes a client."""
-        client_socket.close()
-        if client_socket in self.clients:
-            del self.clients[client_socket]
-        print(f"[INFO] Connection closed for {addr}")
-
-
-def start_server(host, port, handler):
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((host, port))
-    server_socket.listen(5)
-    print(f"Tracker listening on {host}:{port}")
-
-    while True:
-        client_socket, addr = server_socket.accept()
-        print(f"[INFO] Connection from {addr}")
-        Thread(target=handler, args=(client_socket, addr)).start()
-
+    def create_server_socket(self, host, port):
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_socket.bind((host, port))
+        server_socket.listen(32)
+        self._log(f"Tracker listening on {host}:{port}")
+        return server_socket
 
 if __name__ == "__main__":
     tracker = Tracker()
     HOST, PORT = 'localhost', 6789
-    start_server(HOST, PORT, tracker.handle_connection)
