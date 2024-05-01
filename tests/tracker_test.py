@@ -1,19 +1,20 @@
 import pytest
 import time
 import socket
+import random
 
 from src import Tracker, Message
 
 def test_tracker_join():
-    tracker = Tracker('localhost', 6789)
+    base_port = random.randint(49152, 65535)
+    tracker = Tracker('localhost', base_port)
     num_of_clients = 40
     client_sockets = []
-    base_port = 8000
     time.sleep(1)
     for i in range(num_of_clients):
         client_sockets.append(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
-        client_sockets[i].connect(('localhost', 6789))
-        port = base_port + i
+        client_sockets[i].connect(('localhost', base_port))
+        port = base_port + i + 1
         client_sockets[i].sendall(Message('R', port.to_bytes(2, 'big')).pack())
         peer_list_msg = Message.recv_from(client_sockets[i])
         assert peer_list_msg.type_char == b'L'
@@ -21,7 +22,7 @@ def test_tracker_join():
         for j in range(0, len(peer_list_msg.payload), 6):
             ip_bytes = peer_list_msg.payload[j:j+4]
             port_bytes = peer_list_msg.payload[j+4:j+6]
-            assert int.from_bytes(port_bytes, 'big') == base_port + j//6
+            assert int.from_bytes(port_bytes, 'big') == base_port + 1 + j//6
             assert socket.inet_ntoa(ip_bytes) == '127.0.0.1'
     
     time.sleep(1)
