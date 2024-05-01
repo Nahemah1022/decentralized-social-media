@@ -90,10 +90,11 @@ class Worker():
 
                         # forward the post from app to all peers
                         forward_msg = Message('N', recv_msg.payload)
-                        for peer_sock in self.peer_sockets:
-                            if peer_sock == sock:
-                                continue
-                            peer_sock.sendall(forward_msg.pack())
+                        with self.peer_socket_lock:
+                            for peer_sock in self.peer_sockets:
+                                if peer_sock == sock:
+                                    continue
+                                peer_sock.sendall(forward_msg.pack())
                     elif recv_msg.type_char == b'M':
                         block = Block.decode(recv_msg.payload)
                         self._log(block.data)
@@ -171,6 +172,10 @@ class Worker():
     def _get_num_peers(self):
         with self.peer_socket_lock:
             return len(self.peer_sockets)
+        
+    def _get_chain_len(self):
+        with self.pool_lock:
+            return len(self.bc.chain)
 
     # add/remove the peer in local graph
     def _peer_join(self, sock):
