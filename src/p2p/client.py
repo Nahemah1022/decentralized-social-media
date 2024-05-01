@@ -36,19 +36,22 @@ from ..utils import AtomicBool
 from ..message import Message
 
 class P2PClient:
-    def __init__(self, host, port, tracker_host, tracker_port):
+    def __init__(self, addr, tracker_addr, join_handler, leave_handler):
         self.running = AtomicBool(True)
-        self.tracker_addr = (tracker_host, tracker_port)
-        self.peer_sockets = set()  # Stores TCP connections to peers
+        self.tracker_addr = tracker_addr
+        # self.peer_sockets = set()  # Stores TCP connections to peers
+
+        self.join_handler = join_handler
+        self.leave_handler = leave_handler
 
         # 1st. create connector socket
-        self.connector_socket = self.create_connector_socket(host, port)
+        self.connector_socket = self.create_connector_socket(addr[0], addr[1])
         # 2nd. connect to tracker
         self.tracker_socket = self.connect_to_tracker()
         # 3rd. submit registration to tracker with the connector port
         self.event_thread = threading.Thread(target=self._event_handler)
         self.event_thread.start()
-        self.tracker_socket.sendall(Message('R', port.to_bytes(2, 'big')).pack())
+        self.tracker_socket.sendall(Message('R', addr[1].to_bytes(2, 'big')).pack())
 
         # self.self_addr = self.get_internal_ip()
 
@@ -69,7 +72,8 @@ class P2PClient:
                 # Listen and accept incoming connections from other peers through connector socket
                 elif sock is self.connector_socket:
                     peer_sock, addr = sock.accept()
-                    self.peer_sockets.add(peer_sock)
+                    # self.peer_sockets.add(peer_sock)
+                    self.join_handler(peer_sock)
 
     def create_connector_socket(self, host, port):
         connector_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -100,14 +104,15 @@ class P2PClient:
             peer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             peer_socket.connect((peer_addr[0], peer_addr[1]))
             self._log(f"[INFO] Connected to peer at {peer_addr}.")
-            self.peer_sockets.add(peer_socket)
+            self.join_handler(peer_socket)
+            # self.peer_sockets.add(peer_socket)
         except Exception as e:
             print(f"[ERROR] Failed to connect to peer {peer_addr}: {e}")
 
     def stop(self):
         self.running.set(False)
-        for peer_sock in self.peer_sockets:
-            peer_sock.close()
+        # for peer_sock in self.peer_sockets:
+        #     peer_sock.close()
         self.event_thread.join()
         self.connector_socket.close()
         self.tracker_socket.close()
@@ -134,4 +139,4 @@ class P2PClient:
 
 
 if __name__ == "__main__":
-    node = P2PClient("localhost", 8080, "localhost", 6789)
+    node = P2PClient(("localhost", 8080), ("localhost", 6789))

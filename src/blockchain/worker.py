@@ -9,7 +9,7 @@ from ..crypto import SIGNATURE_LEN, RSA_KEY_SIZE, verify_signature, sign_data
 from ..utils import AtomicBool
 
 class Worker():
-    def __init__(self, predefined_sockets=[], enable_mining=True, name="default", log_filepath=None):
+    def __init__(self, predefined_sockets=None, enable_mining=True, name="default", log_filepath=None):
         self.log_lock = threading.Lock()
         self.log_file = None
         if log_filepath:
@@ -19,6 +19,8 @@ class Worker():
         self.bc = Blockchain()
         self.peer_socket_lock = threading.Lock()
         self.has_peer_cond = threading.Condition(self.peer_socket_lock)
+        if predefined_sockets == None:
+            predefined_sockets = []
         self.peer_sockets = set(predefined_sockets)
 
         self.mempool = set()
@@ -66,65 +68,65 @@ class Worker():
             if len(ready_to_read) == 0 and not self.running.get():
                 return
             for sock in ready_to_read:
-                recv_msg = Message.recv_from(sock)
-                # try:
-                #     recv_msg = Message.recv_from(sock)
-                # except ConnectionAbortedError:
-                #     with self.peer_socket_lock:
-                #         self.peer_sockets.remove(sock)
-                self._log(recv_msg.type_char)
-                if recv_msg.type_char == b'N':
-                    public_key_msg, data = Message.unpack(recv_msg.payload)
-                    public_key_bytes = public_key_msg.payload
-                    signature = data[:SIGNATURE_LEN]
-                    block_data = data[SIGNATURE_LEN:]
-                    self._log(block_data)
-                    self.__new_pending_block(signature, public_key_bytes, block_data)
-                elif recv_msg.type_char == b'A':
-                    public_key_msg, data = Message.unpack(recv_msg.payload)
-                    public_key_bytes = public_key_msg.payload
-                    signature = data[:SIGNATURE_LEN]
-                    block_data = data[SIGNATURE_LEN:]
-                    self._log(block_data)
-                    self.__new_pending_block(signature, public_key_bytes, block_data)
+                # recv_msg = Message.recv_from(sock)
+                try:
+                    recv_msg = Message.recv_from(sock)
+                    self._log(recv_msg.type_char)
+                    if recv_msg.type_char == b'N':
+                        public_key_msg, data = Message.unpack(recv_msg.payload)
+                        public_key_bytes = public_key_msg.payload
+                        signature = data[:SIGNATURE_LEN]
+                        block_data = data[SIGNATURE_LEN:]
+                        self._log(block_data)
+                        self.__new_pending_block(signature, public_key_bytes, block_data)
+                    elif recv_msg.type_char == b'A':
+                        public_key_msg, data = Message.unpack(recv_msg.payload)
+                        public_key_bytes = public_key_msg.payload
+                        signature = data[:SIGNATURE_LEN]
+                        block_data = data[SIGNATURE_LEN:]
+                        self._log(block_data)
+                        self.__new_pending_block(signature, public_key_bytes, block_data)
 
-                    # forward the post from app to all peers
-                    forward_msg = Message('N', recv_msg.payload)
-                    for peer_sock in self.peer_sockets:
-                        if peer_sock == sock:
-                            continue
-                        peer_sock.sendall(forward_msg.pack())
-                elif recv_msg.type_char == b'M':
-                    block = Block.decode(recv_msg.payload)
-                    self._log(block.data)
-                    self.__mined_block(block, sock)
-                elif recv_msg.type_char == b'P':
-                    with self.pool_lock:
-                        local_chain_msg = Message('C', self.bc.encode())
-                    sock.sendall(local_chain_msg.pack())
-                elif recv_msg.type_char == b'C':
-                    remote_bc = Blockchain.decode(recv_msg.payload)
-                    self._log(remote_bc)
-                    with self.pool_lock:
-                        fork_point, discarded_blocks = self.bc.mergeChain(remote_bc.chain)
-                        # if blocks are acquired from remote, remove them from mempool to avoid to mine them again
-                        for remote_idx in range(fork_point, len(self.bc.chain)):
-                            remote_block = self.bc.chain[remote_idx]
-                            if remote_block.data in self.mempool:
-                                self.mempool.remove(remote_block.data)
-                        # re-mine discarded blocks
-                        self._log(f"# hash pool: {self.bc.block_hash_pool}")
-                        for block in discarded_blocks:
-                            if hash(block.data) not in self.bc.block_hash_pool:
-                                self.mempool.add(block.data)
-                    self._log("remote chain merged" if fork_point != -1 else "remote is shorter, reject to merge")
-                    # print(f"isValid: {self.bc.isValid()}")
-                else:
-                    raise TypeError("Invalid message type")
-                with self.pool_lock:
-                    self._log(self.bc)
-                    self._log(self.mempool)
-                    self._log("-------------")
+                        # forward the post from app to all peers
+                        forward_msg = Message('N', recv_msg.payload)
+                        for peer_sock in self.peer_sockets:
+                            if peer_sock == sock:
+                                continue
+                            peer_sock.sendall(forward_msg.pack())
+                    elif recv_msg.type_char == b'M':
+                        block = Block.decode(recv_msg.payload)
+                        self._log(block.data)
+                        self.__mined_block(block, sock)
+                    elif recv_msg.type_char == b'P':
+                        with self.pool_lock:
+                            local_chain_msg = Message('C', self.bc.encode())
+                        sock.sendall(local_chain_msg.pack())
+                    elif recv_msg.type_char == b'C':
+                        remote_bc = Blockchain.decode(recv_msg.payload)
+                        self._log(remote_bc)
+                        with self.pool_lock:
+                            fork_point, discarded_blocks = self.bc.mergeChain(remote_bc.chain)
+                            # if blocks are acquired from remote, remove them from mempool to avoid to mine them again
+                            for remote_idx in range(fork_point, len(self.bc.chain)):
+                                remote_block = self.bc.chain[remote_idx]
+                                if remote_block.data in self.mempool:
+                                    self.mempool.remove(remote_block.data)
+                            # re-mine discarded blocks
+                            self._log(f"# hash pool: {self.bc.block_hash_pool}")
+                            for block in discarded_blocks:
+                                if hash(block.data) not in self.bc.block_hash_pool:
+                                    self.mempool.add(block.data)
+                        self._log("remote chain merged" if fork_point != -1 else "remote is shorter, reject to merge")
+                        # print(f"isValid: {self.bc.isValid()}")
+                    else:
+                        raise TypeError("Invalid message type")
+                    # with self.pool_lock:
+                    #     self._log(self.bc)
+                    #     self._log(self.mempool)
+                    #     self._log("-------------")
+
+                except ConnectionAbortedError:
+                    self._peer_leave(sock)
 
     def _mine_worker(self):
         while True:
@@ -164,6 +166,10 @@ class Worker():
     
     def __del__(self):
         self.stop()
+
+    def _get_num_peers(self):
+        with self.peer_socket_lock:
+            return len(self.peer_sockets)
 
     # add/remove the peer in local graph
     def _peer_join(self, sock):
