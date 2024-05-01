@@ -9,7 +9,7 @@ from ..crypto import SIGNATURE_LEN, RSA_KEY_SIZE, verify_signature, sign_data
 from ..utils import AtomicBool
 
 class Worker():
-    def __init__(self, predefined_sockets=None, enable_mining=True, name="default", log_filepath=None):
+    def __init__(self, app_sockets=None, enable_mining=True, name="default", log_filepath=None):
         self.log_lock = threading.Lock()
         self.log_file = None
         if log_filepath:
@@ -19,9 +19,10 @@ class Worker():
         self.bc = Blockchain()
         self.peer_socket_lock = threading.Lock()
         self.has_peer_cond = threading.Condition(self.peer_socket_lock)
-        if predefined_sockets == None:
-            predefined_sockets = []
-        self.peer_sockets = set(predefined_sockets)
+        if app_sockets == None:
+            app_sockets = []
+        self.peer_sockets = set()
+        self.app_sockets = set(app_sockets)
 
         self.mempool = set()
         self.pool_lock = threading.Lock()
@@ -63,7 +64,7 @@ class Worker():
                     self.has_peer_cond.wait()
                     if not self.running.get():
                         return
-                ready_to_read, _, _ = select.select(list(self.peer_sockets), [], [], 0.1)
+                ready_to_read, _, _ = select.select(list(self.peer_sockets) + list(self.app_sockets), [], [], 0.1)
             # nothing to read and asked to stop => terminate
             if len(ready_to_read) == 0 and not self.running.get():
                 return
