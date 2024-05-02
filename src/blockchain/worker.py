@@ -133,8 +133,9 @@ class Worker():
             # if this node is the first one who successfully mined this block, broadcast it
             if is_first:
                 mined_block_msg = Message('M', mined_block.encode())
-                for peer_sock in self.peer_sockets:
-                    peer_sock.sendall(mined_block_msg.pack())
+                with self.pool_lock:
+                    for peer_sock in self.peer_sockets:
+                        peer_sock.sendall(mined_block_msg.pack())
 
     # def broadcast(self, )
 

@@ -37,7 +37,7 @@ from ..utils import AtomicBool
 from ..message import Message
 
 class P2PClient:
-    def __init__(self, addr, tracker_addr, node_addr, join_handler, leave_handler, heartbeat_interval=5):
+    def __init__(self, addr, tracker_addr, node_addr, join_handler, leave_handler, get_chain_len_cb, heartbeat_interval=5):
         self.heartbeat_interval = heartbeat_interval
         self.running = AtomicBool(True)
         self.tracker_addr = tracker_addr
@@ -48,10 +48,7 @@ class P2PClient:
 
         self.join_handler = join_handler
         self.leave_handler = leave_handler
-
-        # used in heartbeat to provide the current chain status with the tracker
-        self.chain_len_lock = threading.Lock()
-        self.chain_len = 0
+        self.get_chain_len_cb = get_chain_len_cb
 
         # 1st. create connector socket
         self.connector_socket = self.create_connector_socket(addr[0], addr[1])
@@ -87,15 +84,10 @@ class P2PClient:
                     # self.peer_sockets.add(peer_sock)
                     self.join_handler(peer_sock)
 
-    def _update_chain_len(self, length):
-        with self.chain_len_lock:
-            self.chain_len = length
-
     def _heartbeat_handler(self):
         while self.running.get():
             try:
-                with self.chain_len_lock:
-                    length = self.chain_len
+                length = self.get_chain_len_cb()
                 self.tracker_socket.sendall(Message('H', length.to_bytes(4, 'big')).pack())
                 time.sleep(self.heartbeat_interval)
             except KeyboardInterrupt:

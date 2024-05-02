@@ -80,8 +80,7 @@ class Tracker:
                             if sock in self.clients_sockets:
                                 self.clients_sockets[sock] = (self.clients_sockets[sock][0], self.clients_sockets[sock][1], clietn_chain_len, self.clients_sockets[sock][3])
                             else:
-                                self._log("[ERROR] Heartbeat from not registered client")
-                        
+                                self._log("[ERROR] Heartbeat from not registered client")                        
                     except ConnectionAbortedError:
                         if sock in self.clients_sockets:
                             del self.clients_sockets[sock]
@@ -97,10 +96,11 @@ class Tracker:
         for clnt_sock in self.clients_sockets:
             clnt_sock.close()
 
-    def __get_client_list(self, top_k=None):
+    def _get_client_list(self, top_k=None):
         if top_k == None:
             top_k = len(self.clients_sockets)
-        return sorted(self.clients_sockets, key=lambda x: x[2], reverse=True)[:top_k]
+        top_k_list = sorted(self.clients_sockets.values(), key=lambda x: x[2], reverse=True)[:top_k]
+        return [(node_addr, length) for _, _, length, node_addr in top_k_list]
 
     def create_server_socket(self, host, port):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

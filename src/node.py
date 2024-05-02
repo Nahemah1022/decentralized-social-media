@@ -10,7 +10,7 @@ from .crypto import SIGNATURE_LEN
 class Node(Worker):
     def __init__(self, p2p_addr, tracker_addr, node_addr=None, app_sockets=None, enable_mining=True, name="default", log_filepath=None, heartbeat_interval=5):
         super().__init__(enable_mining, name, log_filepath)
-        self.p2p_client = P2PClient(p2p_addr, tracker_addr, node_addr, self._peer_join, self._peer_leave, heartbeat_interval)
+        self.p2p_client = P2PClient(p2p_addr, tracker_addr, node_addr, self._peer_join, self._peer_leave, self._get_chain_len, heartbeat_interval)
         if app_sockets == None:
             app_sockets = []
         self.app_sockets = set(app_sockets)
