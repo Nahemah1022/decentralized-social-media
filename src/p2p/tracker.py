@@ -23,7 +23,8 @@ from ..utils import AtomicBool
 class Tracker:
     def __init__(self, host, port):
         self.running = AtomicBool(True)
-        self.clients_sockets = {} # Map from peer's socket to peer's address
+        self.connected_sockets = {} # Map from connected but haven't registered clients to their address
+        self.clients_sockets = {} # Map from peer's socket to peer's (address, port, chain_len)
         # self.clients_lock = threading.Lock()
         # self.has_client_cond = threading.Condition(self.clients_lock)
         self.server_socket = self.create_server_socket(host, port)
@@ -38,31 +39,53 @@ class Tracker:
     def _event_handler(self):
         """Handle each client connection in a separate thread."""
         while self.running.get():
-            ready_to_read, _, _ = select.select(list(self.clients_sockets.keys()) + [self.server_socket], [], [], 0.1)
+            ready_to_read, _, _ = select.select(list(self.clients_sockets.keys()) + list(self.connected_sockets.keys()) + [self.server_socket], [], [], 0.1)
             for sock in ready_to_read:
                 if sock is self.server_socket:
                     clnt_sock, addr = sock.accept() # step 1
                     # print(f"[INFO] Connection from {addr}")
-                    self.clients_sockets[clnt_sock] = (addr[0], None) # create a new non-registered client
+                    self.connected_sockets[clnt_sock] = addr[0]
                 else:
                     try:
                         recv_msg = Message.recv_from(sock)
+                        # Client Registration for its previous connection
                         if recv_msg.type_char == b'R':
                             if len(recv_msg.payload) != 2:
                                 raise ValueError("Registration message should has 2 bytes (size of the port number)")
+                            
+                            # form and respond with current peer list
                             current_peer_list = b''
-                            for peer_addr, peer_port in self.clients_sockets.values():
+                            for peer_addr, peer_port, _ in self.clients_sockets.values():
                                 if peer_port == None: # Don't include non-registered clients
                                     continue
                                 current_peer_list += socket.inet_aton(peer_addr)
                                 current_peer_list += peer_port.to_bytes(2, 'big')
                             clnt_sock.sendall(Message('L', current_peer_list).pack()) # step 3
-                            if sock not in self.clients_sockets:
-                                self._log("[ERROR] Registration from not connected client")
+
+                            # register this socket to client list
+                            port_num = int.from_bytes(recv_msg.payload, 'big')
+                            if sock in self.clients_sockets:
+                                self._log("[WARNING] Multiple registration from registered client")
+                                self.clients_sockets[sock] = (self.clients_sockets[sock][0], port_num, 0)
+                            elif sock in self.connected_sockets:
+                                # move from not-registered pool to clients list
+                                self.clients_sockets[sock] = (self.connected_sockets[sock], port_num, 0)
+                                del self.connected_sockets[sock]
                             else:
-                                self.clients_sockets[sock] = (self.clients_sockets[sock][0], int.from_bytes(recv_msg.payload, 'big'))
+                                self._log("[ERROR] Registration from not connected client")
+                        # Client periodical heartbeat
+                        elif recv_msg.type_char == b'H':
+                            clietn_chain_len = int.from_bytes(recv_msg.payload, 'big')
+                            if sock in self.clients_sockets:
+                                self.clients_sockets[sock] = (self.clients_sockets[sock][0], self.clients_sockets[sock][1], clietn_chain_len)
+                            else:
+                                self._log("[ERROR] Heartbeat from not registered client")
+                        
                     except ConnectionAbortedError:
-                        del self.clients_sockets[sock]
+                        if sock in self.clients_sockets:
+                            del self.clients_sockets[sock]
+                        if sock in self.connected_sockets:
+                            del self.connected_sockets[sock]
                     except ConnectionResetError:
                         self._log("Connection was reset by the client.")
 
@@ -72,6 +95,11 @@ class Tracker:
         self.server_socket.close()
         for clnt_sock in self.clients_sockets:
             clnt_sock.close()
+
+    def __get_client_list(self, top_k=None):
+        if top_k == None:
+            top_k = len(self.clients_sockets)
+        return sorted(self.clients_sockets, key=lambda x: x[2], reverse=True)[:top_k]
 
     def create_server_socket(self, host, port):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
