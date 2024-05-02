@@ -31,18 +31,24 @@ import socket
 import select
 import threading
 import requests
+import time
 
 from ..utils import AtomicBool
 from ..message import Message
 
 class P2PClient:
-    def __init__(self, addr, tracker_addr, join_handler, leave_handler):
+    def __init__(self, addr, tracker_addr, node_addr, join_handler, leave_handler, get_chain_len_cb, heartbeat_interval=5):
+        self.heartbeat_interval = heartbeat_interval
         self.running = AtomicBool(True)
         self.tracker_addr = tracker_addr
+        if node_addr == None:
+            node_addr = ('0.0.0.0', 0)
+        self.node_addr = node_addr
         # self.peer_sockets = set()  # Stores TCP connections to peers
 
         self.join_handler = join_handler
         self.leave_handler = leave_handler
+        self.get_chain_len_cb = get_chain_len_cb
 
         # 1st. create connector socket
         self.connector_socket = self.create_connector_socket(addr[0], addr[1])
@@ -51,7 +57,10 @@ class P2PClient:
         # 3rd. submit registration to tracker with the connector port
         self.event_thread = threading.Thread(target=self._event_handler)
         self.event_thread.start()
-        self.tracker_socket.sendall(Message('R', addr[1].to_bytes(2, 'big')).pack())
+        self.tracker_socket.sendall(Message('R', addr[1].to_bytes(2, 'big') + socket.inet_aton(node_addr[0]) + node_addr[1].to_bytes(2, 'big')).pack())
+        # 4th. heartbeat to tracker
+        self.heartbeat_thread = threading.Thread(target=self._heartbeat_handler)
+        self.heartbeat_thread.start()
 
         # self.self_addr = self.get_internal_ip()
 
@@ -74,6 +83,17 @@ class P2PClient:
                     peer_sock, addr = sock.accept()
                     # self.peer_sockets.add(peer_sock)
                     self.join_handler(peer_sock)
+
+    def _heartbeat_handler(self):
+        while self.running.get():
+            try:
+                length = self.get_chain_len_cb()
+                self.tracker_socket.sendall(Message('H', length.to_bytes(4, 'big')).pack())
+                time.sleep(self.heartbeat_interval)
+            except KeyboardInterrupt:
+                print("Stopped sending messages.")
+            except Exception as e:
+                print(f"An error occurred: {e}")
 
     def create_connector_socket(self, host, port):
         connector_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -114,6 +134,7 @@ class P2PClient:
         # for peer_sock in self.peer_sockets:
         #     peer_sock.close()
         self.event_thread.join()
+        self.heartbeat_thread.join()
         self.connector_socket.close()
         self.tracker_socket.close()
 

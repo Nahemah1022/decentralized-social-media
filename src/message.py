@@ -30,7 +30,10 @@ class Message:
     @classmethod
     def recv_from(cls, sock):
         header_size = struct.calcsize(HEADER_FORMAT)
-        header = sock.recv(header_size)
+        try:
+            header = sock.recv(header_size)
+        except ConnectionResetError:
+            pass
 
         if len(header) == 0:
             raise ConnectionAbortedError("Connection closed by the other end of the socket")

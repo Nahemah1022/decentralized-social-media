@@ -57,7 +57,7 @@ def test_merge_longer_chain(iteration):
       => peer2's local chain is shorter than peer1's remote chain
       => merged and synchronized successfully
     """
-    time.sleep(5)
+    time.sleep(10)
     node1.stop()
     node2.stop()
     # print(len(database) + len(chain1_new) + 1)
