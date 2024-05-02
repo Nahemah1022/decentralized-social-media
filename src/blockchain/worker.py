@@ -9,7 +9,7 @@ from ..crypto import SIGNATURE_LEN, RSA_KEY_SIZE, verify_signature, sign_data
 from ..utils import AtomicBool
 
 class Worker():
-    def __init__(self, app_sockets=None, enable_mining=True, name="default", log_filepath=None):
+    def __init__(self, enable_mining=True, name="default", log_filepath=None):
         self.log_lock = threading.Lock()
         self.log_file = None
         if log_filepath:
@@ -19,10 +19,7 @@ class Worker():
         self.bc = Blockchain()
         self.peer_socket_lock = threading.Lock()
         self.has_peer_cond = threading.Condition(self.peer_socket_lock)
-        if app_sockets == None:
-            app_sockets = []
         self.peer_sockets = set()
-        self.app_sockets = set(app_sockets)
 
         self.mempool = set()
         self.pool_lock = threading.Lock()
@@ -52,8 +49,8 @@ class Worker():
         _recv_handler() thread is dedicated to recieve incoming messages
         from the P2P network, and forward them to their corresponding handler function:
         1. [UPDATE PEER](addr) => __peer_update()
-        2. [NEW BLOCK](signature, content) => __new_pending_block(), from another peer
-        3. [APP BLOCK](signature, content) => __new_pending_block(), from app
+        2. [NEW BLOCK](signature, content) => _new_pending_block(), from another peer
+        3. [APP BLOCK](signature, content) => _new_pending_block(), from app
         4. [MINED BLOCK](block) => __mined_block()
         5. [PULL REQUEST](addr) => __push_local_chain()
         6. [CHAIN](addr) => merge remote chain
@@ -64,7 +61,7 @@ class Worker():
                     self.has_peer_cond.wait()
                     if not self.running.get():
                         return
-                ready_to_read, _, _ = select.select(list(self.peer_sockets) + list(self.app_sockets), [], [], 0.1)
+                ready_to_read, _, _ = select.select(list(self.peer_sockets), [], [], 0.1)
             # nothing to read and asked to stop => terminate
             if len(ready_to_read) == 0 and not self.running.get():
                 return
@@ -79,22 +76,7 @@ class Worker():
                         signature = data[:SIGNATURE_LEN]
                         block_data = data[SIGNATURE_LEN:]
                         self._log(block_data)
-                        self.__new_pending_block(signature, public_key_bytes, block_data)
-                    elif recv_msg.type_char == b'A':
-                        public_key_msg, data = Message.unpack(recv_msg.payload)
-                        public_key_bytes = public_key_msg.payload
-                        signature = data[:SIGNATURE_LEN]
-                        block_data = data[SIGNATURE_LEN:]
-                        self._log(block_data)
-                        self.__new_pending_block(signature, public_key_bytes, block_data)
-
-                        # forward the post from app to all peers
-                        forward_msg = Message('N', recv_msg.payload)
-                        with self.peer_socket_lock:
-                            for peer_sock in self.peer_sockets:
-                                if peer_sock == sock:
-                                    continue
-                                peer_sock.sendall(forward_msg.pack())
+                        self._new_pending_block(signature, public_key_bytes, block_data)
                     elif recv_msg.type_char == b'M':
                         block = Block.decode(recv_msg.payload)
                         self._log(block.data)
@@ -154,6 +136,8 @@ class Worker():
                 for peer_sock in self.peer_sockets:
                     peer_sock.sendall(mined_block_msg.pack())
 
+    # def broadcast(self, )
+
     def stop(self):
         self.enable_mining.set(False)
         self.running.set(False)
@@ -189,7 +173,7 @@ class Worker():
             self.peer_sockets.remove(sock)
 
     # validate the signature, and push to mempool
-    def __new_pending_block(self, signature, public_key_bytes, data):
+    def _new_pending_block(self, signature, public_key_bytes, data):
         if not verify_signature(data, signature, public_key_bytes):
             print("invalid signature")
             return False
