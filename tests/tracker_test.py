@@ -15,7 +15,7 @@ def test_tracker_join():
         client_sockets.append(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
         client_sockets[i].connect(('localhost', base_port))
         port = base_port + i + 1
-        client_sockets[i].sendall(Message('R', port.to_bytes(2, 'big')).pack())
+        client_sockets[i].sendall(Message('R', port.to_bytes(2, 'big') + (b'\x00' * 6)).pack())
         peer_list_msg = Message.recv_from(client_sockets[i])
         assert peer_list_msg.type_char == b'L'
         assert len(peer_list_msg.payload) == i * 6 # 4 bytes ip address + 2 bytes port

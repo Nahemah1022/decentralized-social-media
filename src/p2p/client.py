@@ -37,10 +37,13 @@ from ..utils import AtomicBool
 from ..message import Message
 
 class P2PClient:
-    def __init__(self, addr, tracker_addr, join_handler, leave_handler, heartbeat_interval=5):
+    def __init__(self, addr, tracker_addr, node_addr, join_handler, leave_handler, heartbeat_interval=5):
         self.heartbeat_interval = heartbeat_interval
         self.running = AtomicBool(True)
         self.tracker_addr = tracker_addr
+        if node_addr == None:
+            node_addr = ('0.0.0.0', 0)
+        self.node_addr = node_addr
         # self.peer_sockets = set()  # Stores TCP connections to peers
 
         self.join_handler = join_handler
@@ -57,7 +60,7 @@ class P2PClient:
         # 3rd. submit registration to tracker with the connector port
         self.event_thread = threading.Thread(target=self._event_handler)
         self.event_thread.start()
-        self.tracker_socket.sendall(Message('R', addr[1].to_bytes(2, 'big')).pack())
+        self.tracker_socket.sendall(Message('R', addr[1].to_bytes(2, 'big') + socket.inet_aton(node_addr[0]) + node_addr[1].to_bytes(2, 'big')).pack())
         # 4th. heartbeat to tracker
         self.heartbeat_thread = threading.Thread(target=self._heartbeat_handler)
         self.heartbeat_thread.start()

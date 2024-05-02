@@ -50,12 +50,12 @@ class Tracker:
                         recv_msg = Message.recv_from(sock)
                         # Client Registration for its previous connection
                         if recv_msg.type_char == b'R':
-                            if len(recv_msg.payload) != 2:
+                            if len(recv_msg.payload) != 8:
                                 raise ValueError("Registration message should has 2 bytes (size of the port number)")
                             
                             # form and respond with current peer list
                             current_peer_list = b''
-                            for peer_addr, peer_port, _ in self.clients_sockets.values():
+                            for peer_addr, peer_port, _, _ in self.clients_sockets.values():
                                 if peer_port == None: # Don't include non-registered clients
                                     continue
                                 current_peer_list += socket.inet_aton(peer_addr)
@@ -63,13 +63,14 @@ class Tracker:
                             clnt_sock.sendall(Message('L', current_peer_list).pack()) # step 3
 
                             # register this socket to client list
-                            port_num = int.from_bytes(recv_msg.payload, 'big')
+                            port_num = int.from_bytes(recv_msg.payload[:2], 'big')
+                            node_addr_bytes = recv_msg.payload[2:]
                             if sock in self.clients_sockets:
                                 self._log("[WARNING] Multiple registration from registered client")
-                                self.clients_sockets[sock] = (self.clients_sockets[sock][0], port_num, 0)
+                                self.clients_sockets[sock] = (self.clients_sockets[sock][0], port_num, 0, node_addr_bytes)
                             elif sock in self.connected_sockets:
                                 # move from not-registered pool to clients list
-                                self.clients_sockets[sock] = (self.connected_sockets[sock], port_num, 0)
+                                self.clients_sockets[sock] = (self.connected_sockets[sock], port_num, 0, node_addr_bytes)
                                 del self.connected_sockets[sock]
                             else:
                                 self._log("[ERROR] Registration from not connected client")
@@ -77,7 +78,7 @@ class Tracker:
                         elif recv_msg.type_char == b'H':
                             clietn_chain_len = int.from_bytes(recv_msg.payload, 'big')
                             if sock in self.clients_sockets:
-                                self.clients_sockets[sock] = (self.clients_sockets[sock][0], self.clients_sockets[sock][1], clietn_chain_len)
+                                self.clients_sockets[sock] = (self.clients_sockets[sock][0], self.clients_sockets[sock][1], clietn_chain_len, self.clients_sockets[sock][3])
                             else:
                                 self._log("[ERROR] Heartbeat from not registered client")
                         

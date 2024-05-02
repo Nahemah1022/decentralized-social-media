@@ -45,4 +45,4 @@ def test_heartbeat_chain_length():
     tracker.stop()
 
 if __name__ == '__main__':
-    test_node_sockets()
+    test_heartbeat_chain_length()

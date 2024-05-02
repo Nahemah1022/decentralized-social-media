@@ -10,22 +10,22 @@ def test_two_nodes():
     app_send2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     base_port = random.randint(49152, 65535)
-    tracker = Tracker('localhost', base_port)
+    tracker = Tracker('127.0.0.1', base_port)
     node1 = Node(
-        p2p_addr=('localhost', base_port + 1), 
-        node_addr=('localhost', base_port + 3), 
-        tracker_addr=('localhost', base_port))
+        p2p_addr=('127.0.0.1', base_port + 1), 
+        node_addr=('127.0.0.1', base_port + 3), 
+        tracker_addr=('127.0.0.1', base_port))
     node2 = Node(
-        p2p_addr=('localhost', base_port + 2), 
-        node_addr=('localhost', base_port + 4), 
-        tracker_addr=('localhost', base_port))
+        p2p_addr=('127.0.0.1', base_port + 2), 
+        node_addr=('127.0.0.1', base_port + 4), 
+        tracker_addr=('127.0.0.1', base_port))
     
     time.sleep(3)
     assert node1._get_num_peers() == 1
     assert node2._get_num_peers() == 1
     
-    app_send1.connect(('localhost', base_port + 3))
-    app_send2.connect(('localhost', base_port + 4))
+    app_send1.connect(('127.0.0.1', base_port + 3))
+    app_send2.connect(('127.0.0.1', base_port + 4))
 
     # base blocks in both peers
     database = [b"hello", b"goodbye", b"test"]
@@ -69,17 +69,17 @@ def test_two_nodes():
 
 def test_multi_nodes():
     base_port = random.randint(49152, 65000)
-    tracker = Tracker('localhost', base_port)
+    tracker = Tracker('127.0.0.1', base_port)
     num_nodes = 7
     app_socks = []
     nodes = []
     for i in range(num_nodes):
         app_socks.append(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
         nodes.append(Node(
-            p2p_addr=('localhost', base_port + 1 + i * 2), 
-            node_addr=('localhost', base_port + 2 + i * 2), 
-            tracker_addr=('localhost', base_port)))
-        app_socks[i].connect(('localhost', base_port + 2 + i * 2))
+            p2p_addr=('127.0.0.1', base_port + 1 + i * 2), 
+            node_addr=('127.0.0.1', base_port + 2 + i * 2), 
+            tracker_addr=('127.0.0.1', base_port)))
+        app_socks[i].connect(('127.0.0.1', base_port + 2 + i * 2))
         time.sleep(i)
         assert nodes[i]._get_num_peers() == i
 
