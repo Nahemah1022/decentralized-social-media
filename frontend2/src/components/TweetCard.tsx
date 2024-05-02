@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Icon, Image } from 'semantic-ui-react';
 import { ITweet } from '../types';
+import ReactMarkdown from 'react-markdown'
 
 interface TweetCardProps {
     tweet: ITweet;
@@ -36,9 +37,9 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet }) => {
                 />
                 <Card.Header>{tweet.username}</Card.Header>
                 <Card.Meta>{new Date(tweet.createdAt).toLocaleDateString()}</Card.Meta>
-                <Card.Description>
+                <ReactMarkdown>
                     {tweet.content}
-                </Card.Description>
+                </ReactMarkdown>
             </Card.Content>
             <Card.Content extra>
                 <Icon

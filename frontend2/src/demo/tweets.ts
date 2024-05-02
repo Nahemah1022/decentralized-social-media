@@ -5,14 +5,14 @@ export const DEMO_TWEETS: Array<ITweet> = [
     {
         id: 1,
         username: "John Doe",
-        content: "Just saw the most amazing sunrise today! #breathtaking",
+        content: "# Just saw the most amazing sunrise today!\n #breathtaking\n",
         createdAt: '2023-01-01',
         avatarUrl: "/avatar/large/matthew.png"
     },
     {
         id: 2,
         username: "Jane Smith",
-        content: "Excited to start a new project at work tomorrow. Wish me luck!",
+        content: "```\nExcited to start a new project at work tomorrow. Wish me luck!",
         createdAt: '2023-01-02',
         avatarUrl: "/avatar/large/molly.png"
     },
