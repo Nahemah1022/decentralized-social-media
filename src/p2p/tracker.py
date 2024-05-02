@@ -80,7 +80,13 @@ class Tracker:
                             if sock in self.clients_sockets:
                                 self.clients_sockets[sock] = (self.clients_sockets[sock][0], self.clients_sockets[sock][1], clietn_chain_len, self.clients_sockets[sock][3])
                             else:
-                                self._log("[ERROR] Heartbeat from not registered client")                        
+                                self._log("[ERROR] Heartbeat from not registered client")
+                        # Respond with the top-k longest chain owner's node addr
+                        elif recv_msg.type_char == b'T':
+                            top_k = int.from_bytes(recv_msg.payload, 'big')
+                            top_k_list = self._get_client_list(top_k)
+                            sock.sendall(Message('S', b''.join(top_k_list)).pack())
+                        
                     except ConnectionAbortedError:
                         if sock in self.clients_sockets:
                             del self.clients_sockets[sock]
@@ -100,7 +106,7 @@ class Tracker:
         if top_k == None:
             top_k = len(self.clients_sockets)
         top_k_list = sorted(self.clients_sockets.values(), key=lambda x: x[2], reverse=True)[:top_k]
-        return [(node_addr, length) for _, _, length, node_addr in top_k_list]
+        return [node_addr for _, _, _, node_addr in top_k_list]
 
     def create_server_socket(self, host, port):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

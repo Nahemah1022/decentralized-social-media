@@ -1,8 +1,9 @@
 import pytest
 import time
 import random
+import socket
 
-from src import Node, Tracker, sign_data
+from src import Node, Tracker, sign_data, Message
 
 def test_node_sockets():
     base_port = random.randint(49152, 65000)
@@ -47,11 +48,25 @@ def test_heartbeat_chain_length():
     # for node in nodes:
     #     assert node._get_num_peers() == num_of_nodes - 1
 
-    top_nodes = tracker._get_client_list(4)
+    top_k = 3
+    # Retrieve from tracker
+    top_nodes = tracker._get_client_list(top_k)
     for n in top_nodes:
-        port_num = int.from_bytes(n[0][4:], 'big')
+        port_num = int.from_bytes(n[4:], 'big')
         assert port_num in node_ports
-        assert n[1] <= len(chain1_new)
+    
+    # Retrieve from a new client socket
+    mock_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    mock_socket.connect(('127.0.0.1', base_port))
+    mock_socket.sendall(Message('T', top_k.to_bytes(4, 'big')).pack())
+    recv_msg = Message.recv_from(mock_socket)
+    assert recv_msg.type_char == b'S'
+    for i in range(0, len(recv_msg.payload), 6): # 4 bytes of ip + 2 bytes of port number
+        assert socket.inet_ntoa(recv_msg.payload[i:i+4]) == '127.0.0.1'
+        port_num = int.from_bytes(recv_msg.payload[i+4:i+6], 'big')
+        assert port_num in node_ports
+
+    print("here")
 
     time.sleep(2)
     for node in nodes:
