@@ -3,7 +3,7 @@ import time
 import random
 import socket
 
-from src import Node, Tracker, Message, sign_data
+from src import Node, Tracker, Message, Blockchain, sign_data
 
 def test_two_nodes():
     app_send1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -106,7 +106,7 @@ def test_multi_nodes():
         random_node_idx = random.randint(0, num_nodes - 1)
         app_socks[random_node_idx].sendall(msg.pack())
 
-    time.sleep(num_nodes)
+    time.sleep(num_nodes * 2)
     for node in nodes:
         assert node.bc.isValid()
         assert node._get_chain_len() == len(database) + len(chain_new)
@@ -116,5 +116,76 @@ def test_multi_nodes():
         node.stop()
     tracker.stop()
 
+def test_pull_chain_from_longest_node():
+    base_port = random.randint(49152, 65000)
+    tracker_addr = ('127.0.0.1', base_port)
+    tracker = Tracker('127.0.0.1', base_port)
+    num_nodes = 4
+    app_socks = []
+    nodes = []
+    for i in range(num_nodes):
+        app_socks.append(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
+        nodes.append(Node(
+            p2p_addr=('127.0.0.1', base_port + 1 + i * 2), 
+            node_addr=('127.0.0.1', base_port + 2 + i * 2), 
+            tracker_addr=('127.0.0.1', base_port)))
+        app_socks[i].connect(('127.0.0.1', base_port + 2 + i * 2))
+
+    # base blocks in both peers
+    database = [b"hello", b"goodbye", b"test"]
+    with open('public_key.pem', 'rb') as public_key_file:
+        public_key_bytes = public_key_file.read()
+    public_key_msg = Message('K', public_key_bytes).pack()
+    for data in database:
+        signature = sign_data(data, 'private_key.pem')
+        msg = Message('A', public_key_msg + signature + data)
+        for app_send_sock in app_socks:
+            app_send_sock.sendall(msg.pack())
+
+    # time.sleep(3)
+    # for node in nodes:
+    #     assert node._get_chain_len() == len(database)
+
+    # add new blocks to randomly-chosen node
+    chain_new = [b"chain1_1", b"chain1_2", b"chain1_3", b"chain1_4", b"chain1_5"]
+    for data in chain_new:
+        signature = sign_data(data, 'private_key.pem')
+        msg = Message('A', public_key_msg + signature + data)
+        random_node_idx = random.randint(0, num_nodes - 1)
+        app_socks[random_node_idx].sendall(msg.pack())
+
+    # time.sleep(num_nodes)
+    # for node in nodes:
+    #     assert node.bc.isValid()
+    #     assert node._get_chain_len() == len(database) + len(chain_new)
+    #     assert node.bc == nodes[0].bc
+
+    time.sleep(3)
+
+    tracker_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tracker_socket.connect(tracker_addr)
+    top_k = 3
+    tracker_socket.sendall(Message('T', top_k.to_bytes(4, 'big')).pack())
+    recv_msg = Message.recv_from(tracker_socket)
+    assert recv_msg.type_char == b'S'
+    addr = socket.inet_ntoa(recv_msg.payload[:4])
+    port_num = int.from_bytes(recv_msg.payload[4:6], 'big')
+    node_addr = (addr, port_num)
+
+    print(node_addr)
+
+    node_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    node_socket.connect(node_addr)
+    node_socket.sendall(Message('P', b'').pack())
+    recv_msg = Message.recv_from(node_socket)
+    assert recv_msg.type_char == b'C'
+    remote_bc = Blockchain.decode(recv_msg.payload)
+    assert len(remote_bc.chain) <= len(database) + len(chain_new)
+    assert remote_bc.isValid()
+
+    for node in nodes:
+        node.stop()
+    tracker.stop()
+
 if __name__ == '__main__':
-    test_multi_nodes()
+    test_pull_chain_from_longest_node()

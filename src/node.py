@@ -36,20 +36,23 @@ class Node(Worker):
                 else:
                     try:
                         recv_msg = Message.recv_from(sock)
-                        if recv_msg.type_char != b'A':
-                            raise TypeError("Node shouldn't recieve message with type other than A")
-                        public_key_msg, data = Message.unpack(recv_msg.payload)
-                        public_key_bytes = public_key_msg.payload
-                        signature = data[:SIGNATURE_LEN]
-                        block_data = data[SIGNATURE_LEN:]
-                        self._log(block_data)
-                        self._new_pending_block(signature, public_key_bytes, block_data)
+                        if recv_msg.type_char == b'A':
+                            public_key_msg, data = Message.unpack(recv_msg.payload)
+                            public_key_bytes = public_key_msg.payload
+                            signature = data[:SIGNATURE_LEN]
+                            block_data = data[SIGNATURE_LEN:]
+                            self._log(block_data)
+                            self._new_pending_block(signature, public_key_bytes, block_data)
 
-                        # forward the post from app to all peers
-                        forward_msg = Message('N', recv_msg.payload)
-                        with self.peer_socket_lock:
-                            for peer_sock in self.peer_sockets:
-                                peer_sock.sendall(forward_msg.pack())
+                            # forward the post from app to all peers
+                            forward_msg = Message('N', recv_msg.payload)
+                            with self.peer_socket_lock:
+                                for peer_sock in self.peer_sockets:
+                                    peer_sock.sendall(forward_msg.pack())
+                        elif recv_msg.type_char == b'P':
+                            with self.pool_lock:
+                                local_chain_msg = Message('C', self.bc.encode())
+                            sock.sendall(local_chain_msg.pack())
                     except ConnectionAbortedError:
                         with self.app_sockets_lock:
                             self.app_sockets.remove(sock)

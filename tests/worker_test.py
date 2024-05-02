@@ -58,8 +58,6 @@ def test_merge_longer_chain(iteration):
       => merged and synchronized successfully
     """
     time.sleep(10)
-    node1.stop()
-    node2.stop()
     # print(len(database) + len(chain1_new) + 1)
     # print(len(node1.bc.chain))
     # print(len(node2.bc.chain))
@@ -72,6 +70,8 @@ def test_merge_longer_chain(iteration):
     assert node2.bc.isValid()
     assert len(node1.bc.chain) == len(database) + len(chain1_new) + 1
     assert len(node2.bc.chain) == len(database) + len(chain1_new) + 1
+    node1.stop()
+    node2.stop()
 
 if __name__ == '__main__':
     test_merge_longer_chain(1)
