@@ -23,7 +23,13 @@ def get_chain():
         socket_manager.get_socket().sendall(Message('P', b'').pack())
         recv_msg = Message.recv_from(socket_manager.get_socket())
         blockchain = Blockchain.decode(recv_msg.payload)
-        post_list = [block.data.decode() for block in blockchain.chain]
+        post_list = []
+        for block in blockchain.chain:
+            block_data = block.data.decode()
+            post_list.append({
+                "author": block_data[:64],
+                "content": block_data[64:]
+            })
         return jsonify(post_list)  # Assuming Blockchain has a to_dict() method
     except Exception as e:
         return jsonify({"error": str(e)}), 500

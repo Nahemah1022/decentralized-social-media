@@ -176,7 +176,7 @@ class Worker():
             # discard any duplicated block
             if hash(data) in self.bc.block_hash_pool:
                 return
-            self.mempool.add(data)
+            self.mempool.add(hash(public_key_bytes).encode('utf-8') + data)
             self.pool_has_job_cond.notify(1)
 
     # validate the block, and add it to local blockchain
