@@ -2,20 +2,30 @@ import pytest
 import time
 import random
 import socket
+import sys
+import os
 
-from src import Node, Tracker, Message, Blockchain, sign_data
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from src import Node
+from src.p2p import Tracker
+from src.message import Message
+from src.blockchain import Blockchain
+from src.crypto import sign_data
 
 def test_two_nodes():
     app_send1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     app_send2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     base_port = random.randint(49152, 65535)
-    tracker = Tracker('127.0.0.1', base_port)
+    tracker = Tracker('127.0.0.1', base_port, 'tracker')
     node1 = Node(
+        log_filepath="node_1",
         p2p_addr=('127.0.0.1', base_port + 1), 
         node_addr=('127.0.0.1', base_port + 3), 
         tracker_addr=('127.0.0.1', base_port))
     node2 = Node(
+        log_filepath="node_2",
         p2p_addr=('127.0.0.1', base_port + 2), 
         node_addr=('127.0.0.1', base_port + 4), 
         tracker_addr=('127.0.0.1', base_port))
@@ -69,13 +79,14 @@ def test_two_nodes():
 
 def test_multi_nodes():
     base_port = random.randint(49152, 65000)
-    tracker = Tracker('127.0.0.1', base_port)
+    tracker = Tracker('127.0.0.1', base_port, 'tracker')
     num_nodes = 7
     app_socks = []
     nodes = []
     for i in range(num_nodes):
         app_socks.append(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
         nodes.append(Node(
+            log_filepath=f"node_{i}",
             p2p_addr=('127.0.0.1', base_port + 1 + i * 2), 
             node_addr=('127.0.0.1', base_port + 2 + i * 2), 
             tracker_addr=('127.0.0.1', base_port)))
@@ -119,13 +130,14 @@ def test_multi_nodes():
 def test_pull_chain_from_longest_node():
     base_port = random.randint(49152, 65000)
     tracker_addr = ('127.0.0.1', base_port)
-    tracker = Tracker('127.0.0.1', base_port)
+    tracker = Tracker('127.0.0.1', base_port, 'tracker')
     num_nodes = 4
     app_socks = []
     nodes = []
     for i in range(num_nodes):
         app_socks.append(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
         nodes.append(Node(
+            log_filepath=f"node_{i}",
             p2p_addr=('127.0.0.1', base_port + 1 + i * 2), 
             node_addr=('127.0.0.1', base_port + 2 + i * 2), 
             tracker_addr=('127.0.0.1', base_port)))

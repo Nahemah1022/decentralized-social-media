@@ -39,6 +39,7 @@ from ..message import Message
 class P2PClient:
     def __init__(self, addr, tracker_addr, node_addr, join_handler, leave_handler, get_chain_len_cb, heartbeat_interval=5):
         self.heartbeat_interval = heartbeat_interval
+        self.stop_event = threading.Event()
         self.running = AtomicBool(True)
         self.tracker_addr = tracker_addr
         if node_addr == None:
@@ -89,7 +90,7 @@ class P2PClient:
             try:
                 length = self.get_chain_len_cb()
                 self.tracker_socket.sendall(Message('H', length.to_bytes(4, 'big')).pack())
-                time.sleep(self.heartbeat_interval)
+                self.stop_event.wait(10)
             except KeyboardInterrupt:
                 print("Stopped sending messages.")
             except Exception as e:
@@ -131,6 +132,7 @@ class P2PClient:
 
     def stop(self):
         self.running.set(False)
+        self.stop_event.set()
         # for peer_sock in self.peer_sockets:
         #     peer_sock.close()
         self.event_thread.join()

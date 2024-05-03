@@ -17,7 +17,8 @@ class Node(Worker):
         self.app_sockets = set(app_sockets)
         self.app_sockets_lock = threading.Lock()
 
-        if node_addr: # expose the node server to web-server
+        self.node_addr = node_addr
+        if self.node_addr: # expose the node server to web-server
             self.server_socket = self.create_server(node_addr)
             self._app_recv_thread = threading.Thread(target=self._app_recv_handler)
             self._app_recv_thread.start()
@@ -74,7 +75,7 @@ class Node(Worker):
     def stop(self):
         super().stop()
         self.p2p_client.stop()
-        if self._app_recv_thread:
+        if self.node_addr:
             self._app_recv_thread.join()
 
 def run_node(args):

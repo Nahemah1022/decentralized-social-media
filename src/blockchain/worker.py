@@ -12,8 +12,7 @@ class Worker():
     def __init__(self, enable_mining=True, name="default", log_filepath=None):
         self.log_lock = threading.Lock()
         self.log_file = None
-        if log_filepath:
-            self.log_file = open(f"{log_filepath}.log", 'w')
+        self.log_file = open(f"{log_filepath}.log", 'w') if log_filepath else None
         self.running = AtomicBool(True)
         self.name = name
         self.bc = Blockchain()
@@ -32,13 +31,13 @@ class Worker():
         self.event_thread.start()
 
     def _log(self, *args):
-        with self.log_lock:
-            if self.log_file:
+        if self.log_file:
+            with self.log_lock:
                 for arg in args:
-                    print(f"[Worker] {arg}", file=self.log_file)
-            else:
-                for arg in args:
-                    print(f"[Worker] {arg}")
+                    print(f"{arg}", file=self.log_file)
+        else:
+            for arg in args:
+                print(f"{arg}")
 
     def _recv_handler(self):
         """
@@ -71,11 +70,9 @@ class Worker():
                         public_key_bytes = public_key_msg.payload
                         signature = data[:SIGNATURE_LEN]
                         block_data = data[SIGNATURE_LEN:]
-                        self._log(block_data)
                         self._new_pending_block(signature, public_key_bytes, block_data)
                     elif recv_msg.type_char == b'M':
                         block = Block.decode(recv_msg.payload)
-                        self._log(block.data)
                         self.__mined_block(block, sock)
                     elif recv_msg.type_char == b'P':
                         with self.pool_lock:
@@ -83,7 +80,6 @@ class Worker():
                         sock.sendall(local_chain_msg.pack())
                     elif recv_msg.type_char == b'C':
                         remote_bc = Blockchain.decode(recv_msg.payload)
-                        self._log(remote_bc)
                         with self.pool_lock:
                             fork_point, discarded_blocks = self.bc.mergeChain(remote_bc.chain)
                             # if blocks are acquired from remote, remove them from mempool to avoid to mine them again
@@ -92,11 +88,11 @@ class Worker():
                                 if remote_block.data in self.mempool:
                                     self.mempool.remove(remote_block.data)
                             # re-mine discarded blocks
-                            self._log(f"# hash pool: {self.bc.block_hash_pool}")
+                            # self._log(f"[Worker] # hash pool: {self.bc.block_hash_pool}")
                             for block in discarded_blocks:
                                 if hash(block.data) not in self.bc.block_hash_pool:
                                     self.mempool.add(block.data)
-                        self._log("remote chain merged" if fork_point != -1 else "remote is shorter, reject to merge")
+                        self._log("[Worker] remote chain merged" if fork_point != -1 else "[Worker] remote is shorter, reject to merge")
                         # print(f"isValid: {self.bc.isValid()}")
                     else:
                         raise TypeError("Invalid message type")
@@ -146,6 +142,8 @@ class Worker():
         self.worker_thread.join()
         # print(f"remaining pending blocks: {len(self.mempool)}")
         self.event_thread.join()
+        if self.log_file:
+            self.log_file.close()
     
     def __del__(self):
         self.stop()

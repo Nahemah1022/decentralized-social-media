@@ -83,4 +83,4 @@ def run_webserver(args):
     scheduler = BackgroundScheduler()
     scheduler.add_job(func=update_connection, trigger="interval", minutes=args.interval)
     scheduler.start()
-    app.run(debug=True, use_reloader=False)  # Use reloader=False to not interfere with APScheduler
+    app.run(port=args.server_port, debug=True, use_reloader=False)  # Use reloader=False to not interfere with APScheduler

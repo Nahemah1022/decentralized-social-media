@@ -2,20 +2,28 @@ import pytest
 import time
 import random
 import socket
+import sys
+import os
 
-from src import Node, Tracker, sign_data, Message
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from src import Node
+from src.p2p import Tracker
+from src.crypto import sign_data
+from src.message import Message
 
 def test_node_sockets():
     base_port = random.randint(49152, 65000)
-    tracker = Tracker('127.0.0.1', base_port)
+    tracker = Tracker('127.0.0.1', base_port, 'tracker')
     num_of_nodes = 10
     nodes = []
     for i in range(num_of_nodes):
         nodes.append(Node(
+            log_filepath=f"node_{i}",
             p2p_addr=('127.0.0.1', base_port + i + 1), 
             tracker_addr=('127.0.0.1', base_port),
             heartbeat_interval=1))
-    time.sleep(num_of_nodes // 2)
+    time.sleep(num_of_nodes)
     for node in nodes:
         assert node._get_num_peers() == num_of_nodes - 1
     for node in nodes:
@@ -24,7 +32,7 @@ def test_node_sockets():
 
 def test_heartbeat_chain_length():
     base_port = random.randint(49152, 65000)
-    tracker = Tracker('127.0.0.1', base_port)
+    tracker = Tracker('127.0.0.1', base_port, 'tracker')
     num_of_nodes = 7
     nodes = []
     node_ports = set()
@@ -34,6 +42,7 @@ def test_heartbeat_chain_length():
     for i in range(num_of_nodes):
         node_ports.add(base_port + 2 * i + 2)
         nodes.append(Node(
+            log_filepath=f"node_{i}",
             p2p_addr=('127.0.0.1', base_port + 2 * i + 1), 
             node_addr=('127.0.0.1', base_port + 2 * i + 2), 
             tracker_addr=('127.0.0.1', base_port),
@@ -65,8 +74,6 @@ def test_heartbeat_chain_length():
         assert socket.inet_ntoa(recv_msg.payload[i:i+4]) == '127.0.0.1'
         port_num = int.from_bytes(recv_msg.payload[i+4:i+6], 'big')
         assert port_num in node_ports
-
-    print("here")
 
     time.sleep(2)
     for node in nodes:

@@ -1,9 +1,13 @@
 import pytest
-import os
 import socket
 import time
+import sys
+import os
 
-from src import Worker, sign_data, Message, generate_rsa_key_pair
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from src.blockchain import Worker
+from src.crypto import sign_data, generate_rsa_key_pair
 
 @pytest.fixture(scope="session")
 def generate_keys():

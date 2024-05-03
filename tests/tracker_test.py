@@ -2,12 +2,17 @@ import pytest
 import time
 import socket
 import random
+import sys
+import os
 
-from src import Tracker, Message
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from src.p2p import Tracker
+from src.message import Message
 
 def test_tracker_join():
     base_port = random.randint(49152, 65535)
-    tracker = Tracker('localhost', base_port)
+    tracker = Tracker('127.0.0.1', base_port, 'tracker')
     num_of_clients = 40
     client_sockets = []
     time.sleep(1)

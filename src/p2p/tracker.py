@@ -22,7 +22,9 @@ from ..message import Message
 from ..utils import AtomicBool
 
 class Tracker:
-    def __init__(self, host, port):
+    def __init__(self, host, port, log_filepath=None):
+        self.log_lock = threading.Lock()
+        self.log_file = open(f"{log_filepath}.log", 'w') if log_filepath else None
         self.running = AtomicBool(True)
         self.connected_sockets = {} # Map from connected but haven't registered clients to their address
         self.clients_sockets = {} # Map from peer's socket to peer's (address, port, chain_len)
@@ -33,8 +35,13 @@ class Tracker:
         self.event_thread.start()
 
     def _log(self, *args):
-        for arg in args:
-            print(arg)
+        if self.log_file:
+            with self.log_lock:
+                for arg in args:
+                    print(f"{arg}", file=self.log_file)
+        else:
+            for arg in args:
+                print(f"{arg}")
 
     def _event_handler(self):
         """Handle each client connection in a separate thread."""
@@ -105,6 +112,8 @@ class Tracker:
         self.server_socket.close()
         for clnt_sock in self.clients_sockets:
             clnt_sock.close()
+        if self.log_file:
+            self.log_file.close()
 
     def _get_client_list(self, top_k=None):
         if top_k == None:
