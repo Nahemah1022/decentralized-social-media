@@ -1,6 +1,7 @@
 import socket
 import select
 import threading
+import time
 
 from .blockchain import Worker
 from .p2p import P2PClient
@@ -31,11 +32,13 @@ class Node(Worker):
             for sock in ready_to_read:
                 if sock is self.server_socket:
                     app_sock, addr = self.server_socket.accept()
+                    self._log(f"[Node] Accept new app connection from {addr}")
                     with self.app_sockets_lock:
                         self.app_sockets.add(app_sock)
                 else:
                     try:
                         recv_msg = Message.recv_from(sock)
+                        self._log(f"[Node] Recieved message with type {recv_msg.type_char}")
                         if recv_msg.type_char == b'A':
                             public_key_msg, data = Message.unpack(recv_msg.payload)
                             public_key_bytes = public_key_msg.payload
@@ -61,9 +64,30 @@ class Node(Worker):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_socket.bind(node_addr)
         server_socket.listen(32)
-        self._log(f"Tracker listening on {node_addr[0]}:{node_addr[1]}")
+        self._log(f"[Node] app server listening on {node_addr[0]}:{node_addr[1]}")
         return server_socket
+
+    def __del__(self):
+        self.stop()
+        return super().__del__()
 
     def stop(self):
         super().stop()
         self.p2p_client.stop()
+        if self._app_recv_thread:
+            self._app_recv_thread.join()
+
+def run_node(args):
+    node = Node(
+        p2p_addr=('127.0.0.1', args.p2p_port), 
+        node_addr=('127.0.0.1', args.node_port), 
+        tracker_addr=(args.tracker_addr, args.tracker_port),
+        heartbeat_interval=args.heartbeat_interval
+    )
+    try:
+        print("Node started. Press Ctrl+C to stop.")
+        while True:
+            time.sleep(10)  # Sleep for a long time, effectively waiting indefinitely
+    except KeyboardInterrupt:
+        print("Node interrupted by user.")
+    node.stop()

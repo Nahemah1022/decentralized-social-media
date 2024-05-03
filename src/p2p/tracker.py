@@ -16,6 +16,7 @@
 import socket
 import select
 import threading
+import time
 
 from ..message import Message
 from ..utils import AtomicBool
@@ -32,7 +33,6 @@ class Tracker:
         self.event_thread.start()
 
     def _log(self, *args):
-        return
         for arg in args:
             print(arg)
 
@@ -43,7 +43,7 @@ class Tracker:
             for sock in ready_to_read:
                 if sock is self.server_socket:
                     clnt_sock, addr = sock.accept() # step 1
-                    # print(f"[INFO] Connection from {addr}")
+                    self._log(f"[INFO] Connection from {addr}")
                     self.connected_sockets[clnt_sock] = addr[0]
                 else:
                     try:
@@ -70,6 +70,7 @@ class Tracker:
                                 self.clients_sockets[sock] = (self.clients_sockets[sock][0], port_num, 0, node_addr_bytes)
                             elif sock in self.connected_sockets:
                                 # move from not-registered pool to clients list
+                                self._log(f"[INFO] Registration from {self.connected_sockets[sock]}")
                                 self.clients_sockets[sock] = (self.connected_sockets[sock], port_num, 0, node_addr_bytes)
                                 del self.connected_sockets[sock]
                             else:
@@ -78,6 +79,7 @@ class Tracker:
                         elif recv_msg.type_char == b'H':
                             clietn_chain_len = int.from_bytes(recv_msg.payload, 'big')
                             if sock in self.clients_sockets:
+                                self._log(f"[INFO] Heartbeat from {self.clients_sockets[sock][0]}:{self.clients_sockets[sock][1]}")
                                 self.clients_sockets[sock] = (self.clients_sockets[sock][0], self.clients_sockets[sock][1], clietn_chain_len, self.clients_sockets[sock][3])
                             else:
                                 self._log("[ERROR] Heartbeat from not registered client")
@@ -89,11 +91,13 @@ class Tracker:
                         
                     except ConnectionAbortedError:
                         if sock in self.clients_sockets:
+                            self._log(f"[INFO] Disconnected from {self.clients_sockets[sock][0]}:{self.clients_sockets[sock][1]}")
                             del self.clients_sockets[sock]
                         if sock in self.connected_sockets:
+                            self._log(f"[INFO] Disconnected from {self.connected_sockets[sock]}")
                             del self.connected_sockets[sock]
                     except ConnectionResetError:
-                        self._log("Connection was reset by the client.")
+                        self._log("[WARNING] Connection was reset by the client.")
 
     def stop(self):
         self.running.set(False)
@@ -115,6 +119,13 @@ class Tracker:
         self._log(f"Tracker listening on {host}:{port}")
         return server_socket
 
-if __name__ == "__main__":
-    tracker = Tracker()
-    HOST, PORT = 'localhost', 6789
+def run_tracker(args):
+    tracker = Tracker(host=args.tracker_addr, port=args.tracker_port)
+    try:
+        print("Tracker started. Press Ctrl+C to stop.")
+        while True:
+            time.sleep(10)  # Sleep for a long time, effectively waiting indefinitely
+    except KeyboardInterrupt:
+        print("Tracker interrupted by user.")
+
+    tracker.stop()

@@ -32,17 +32,13 @@ class Worker():
         self.event_thread.start()
 
     def _log(self, *args):
-        return
-        # if self.name != "node1":
-        #     return
         with self.log_lock:
             if self.log_file:
                 for arg in args:
-                    print(f"{arg}", file=self.log_file)
+                    print(f"[Worker] {arg}", file=self.log_file)
             else:
-                print(f"{self.name}:")
                 for arg in args:
-                    print(f"{arg}")
+                    print(f"[Worker] {arg}")
 
     def _recv_handler(self):
         """
@@ -69,7 +65,7 @@ class Worker():
                 # recv_msg = Message.recv_from(sock)
                 try:
                     recv_msg = Message.recv_from(sock)
-                    self._log(recv_msg.type_char)
+                    self._log(f"[Worker] Recieved message with type {recv_msg.type_char}")
                     if recv_msg.type_char == b'N':
                         public_key_msg, data = Message.unpack(recv_msg.payload)
                         public_key_bytes = public_key_msg.payload
@@ -122,7 +118,7 @@ class Worker():
                 pending_block_data = next(iter(self.mempool))
 
             mined_block = self.bc.mine(Block(data=pending_block_data))
-            self._log(f"# mined a block: {pending_block_data}")
+            self._log(f"[Worker] mined a block: {pending_block_data[:10]}...")
             is_first = False
             with self.pool_lock:
                 # otherwise, the block might have already been mined and propagates to this node
