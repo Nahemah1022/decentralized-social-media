@@ -72,13 +72,17 @@ class P2PClient:
             for sock in ready_to_read:
                 # At the beginning, recieve and connect to the list of peers from tracker
                 if sock is self.tracker_socket:
-                    peer_list_msg = Message.recv_from(sock)
-                    if peer_list_msg.type_char != b'L':
-                        raise TypeError("Client recieve message other than type `L` from tracker")
-                    for j in range(0, len(peer_list_msg.payload), 6):
-                        peer_ip_addr = socket.inet_ntoa(peer_list_msg.payload[j:j+4])
-                        peer_port = int.from_bytes(peer_list_msg.payload[j+4:j+6], 'big')
-                        self.connect_to_peer((peer_ip_addr, peer_port))
+                    try:
+                        peer_list_msg = Message.recv_from(sock)
+                        if peer_list_msg.type_char != b'L':
+                            raise TypeError("Client recieve message other than type `L` from tracker")
+                        for j in range(0, len(peer_list_msg.payload), 6):
+                            peer_ip_addr = socket.inet_ntoa(peer_list_msg.payload[j:j+4])
+                            peer_port = int.from_bytes(peer_list_msg.payload[j+4:j+6], 'big')
+                            self.connect_to_peer((peer_ip_addr, peer_port))
+                    except ConnectionAbortedError:
+                        self._log("[ERROR] Disconnected from tracker. P2P client is down.")
+                        return
                 # Listen and accept incoming connections from other peers through connector socket
                 elif sock is self.connector_socket:
                     peer_sock, addr = sock.accept()
@@ -104,7 +108,6 @@ class P2PClient:
         return connector_socket
 
     def _log(self, *args):
-        return
         for arg in args:
             print(arg)
 
