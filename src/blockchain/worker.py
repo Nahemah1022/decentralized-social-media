@@ -158,7 +158,7 @@ class Worker():
 
     # add/remove the peer in local graph
     def _peer_join(self, sock):
-        self._log(f"# peer connected at {sock}")
+        self._log(f"[Worker] new peer connected at {sock}")
         with self.has_peer_cond:
             self.peer_sockets.add(sock)
             self.has_peer_cond.notify(1)
