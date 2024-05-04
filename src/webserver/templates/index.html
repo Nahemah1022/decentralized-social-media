@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sign and Send Data with Key Upload</title>
+</head>
+<body>
+    <span>Register: </span><button id="generate">Generate Keys Pair</button>
+    <hr>
+    <span>Login: </span><input type="file" id="publicKeyFile" accept=".pem" placeholder="Upload Public Key" onchange="calculatePublicKeyHash(this)">
+    <br>
+    <i id="loginInfo">Not login yet, upload your public key to login</i>
+    <hr>
+    <textarea id="postTextarea" rows="4" cols="50" placeholder="Write Something in Your Post..."></textarea>
+    <input type="file" id="privateKeyFile" accept=".pem" placeholder="Upload Private Key">
+    <br>
+    <button id="signSend">Sign & Send Data</button>
+    <script>
+        const generateButton = document.getElementById('generate');
+        const postTextarea = document.getElementById('postTextarea');
+        const signSendButton = document.getElementById('signSend');
+        const privateKeyInput = document.getElementById('privateKeyFile');
+        const publicKeyInput = document.getElementById('publicKeyFile');
+        const loginInfo = document.getElementById('loginInfo');
+
+        async function readFileAsync(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(reader.error);
+
+                reader.readAsText(file);
+            });
+        }
+
+        async function calculatePublicKeyHash(fileInput) {
+            try {
+                const publicKey = await readFileAsync(fileInput.files[0]);
+                const encoder = new TextEncoder();
+                const publicKeyHash = await crypto.subtle.digest('SHA-256', encoder.encode(publicKey));
+                const hashHex = Array.from(new Uint8Array(publicKeyHash)).map(b => b.toString(16).padStart(2, '0')).join('');
+                loginInfo.textContent = `Login as: ${hashHex}`;
+            } catch (error) {
+                console.error('Error calculating public key hash:', error);
+            }
+        }
+
+        generateButton.onclick = async () => {
+            // Generate Key Pair
+            const keyPair = await window.crypto.subtle.generateKey(
+                {
+                    name: "RSASSA-PKCS1-v1_5",
+                    modulusLength: 2048,
+                    publicExponent: new Uint8Array([1, 0, 1]),
+                    hash: {name: "SHA-256"},
+                },
+                true,
+                ["sign", "verify"]
+            );
+            privateKey = keyPair.privateKey;
+            publicKey = keyPair.publicKey;
+
+            // Export and save the public key
+            exportedPublicKey = await window.crypto.subtle.exportKey("spki", publicKey);
+            const pemExportedPublicKey = `-----BEGIN PUBLIC KEY-----\n${btoa(String.fromCharCode.apply(null, new Uint8Array(exportedPublicKey)))}\n-----END PUBLIC KEY-----`;
+            download(pemExportedPublicKey, 'public_key.pem');
+
+            // Export and save the private key
+            const exportedPrivateKey = await window.crypto.subtle.exportKey("pkcs8", privateKey);
+            const pemExportedPrivateKey = `-----BEGIN PRIVATE KEY-----\n${btoa(String.fromCharCode.apply(null, new Uint8Array(exportedPrivateKey)))}\n-----END PRIVATE KEY-----`;
+            download(pemExportedPrivateKey, 'private_key.pem');
+        };
+
+        signSendButton.onclick = async () => {
+            if (!privateKeyInput.files.length || !publicKeyInput.files.length) {
+                alert('Please upload both private and public key files.');
+                return;
+            }
+
+            if (!postTextarea.value) {
+                alert('Plese write something in your post.');
+                return;
+            }
+
+            try {
+                // Read and process private key file
+                const pemPrivate = await readFileAsync(privateKeyInput.files[0]);
+                const privateKeyData = pemPrivate.split('\n').slice(1, -1).join('');
+                const binaryDerPrivate = atob(privateKeyData);
+                const arrayPrivate = new Uint8Array(binaryDerPrivate.length);
+                for (let i = 0; i < binaryDerPrivate.length; i++) {
+                    arrayPrivate[i] = binaryDerPrivate.charCodeAt(i);
+                }
+                privateKey = await window.crypto.subtle.importKey(
+                    "pkcs8",
+                    arrayPrivate.buffer,
+                    {
+                        name: "RSASSA-PKCS1-v1_5",
+                        hash: {name: "SHA-256"},
+                    },
+                    true,
+                    ["sign"]
+                );
+
+                // Sign data
+                const data = postTextarea.value;
+                const encoder = new TextEncoder();
+                const encodedData = encoder.encode(data);
+                const signature = await window.crypto.subtle.sign(
+                    "RSASSA-PKCS1-v1_5",
+                    privateKey,
+                    encodedData
+                );
+
+                // Read public key file
+                const publicKey = await readFileAsync(publicKeyInput.files[0]);
+                // Send data, public key, and signature to server
+                fetch('http://127.0.0.1:5000/message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        post_content: data,
+                        public_key: publicKey,
+                        signature: btoa(String.fromCharCode.apply(null, new Uint8Array(signature)))
+                    }),
+                    // credentials: 'include'  // Include credentials for cookies, authorization headers or TLS client certificates
+                }).then(response => response.json()).then(data => {
+                    console.log('Response:', data);
+                }).catch(error => {
+                    console.error('Error:', error);
+                });
+            } catch (error) {
+                console.error('Error reading file:', error);
+            }
+        };
+
+        function download(data, filename) {
+            const blob = new Blob([data], {type: 'text/plain'});
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
