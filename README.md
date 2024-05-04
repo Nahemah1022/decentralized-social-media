@@ -34,3 +34,23 @@ To start the webserver that interfaces with the tracker and possibly nodes, use 
 ```
 python3 src/main.py webserver --server_port=5000 --tracker_addr='127.0.0.1' --tracker_port=8000 --interval=1
 ```
+
+*Please replace this text with information on how to run your code, description of each file in the directory, and any assumptions you have made for your code*
+
+### Frontend (FIXME)
+
+```bash
+# Install backend dependencies
+pip3 install -r backend/requirements.txt
+
+# Install frontend dependencies and build the frontend
+cd frontend2
+npm install
+npm run build
+
+# Run the server
+cd ..
+python3 backend/app/app.py
+
+# Now you can visit localhost:5000 to see the app!
+```
