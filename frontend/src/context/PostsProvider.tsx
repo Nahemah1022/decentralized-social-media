@@ -22,7 +22,7 @@ interface PostsProviderProps {
 
 export const fetchPosts = async (): Promise<Array<IPost>> => {
     try {
-        const response = await fetch('http://127.0.0.1:5000/chain');  // FIXME
+        const response = await fetch('http://127.0.0.1:8080/chain');  // FIXME
         if (!response.ok)
             throw new Error(`Failed to fetch posts: ${response.statusText}`);
         const posts: Array<IPost> = await response.json();
