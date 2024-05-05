@@ -9,6 +9,6 @@ export interface ITweet {
 }
 
 export interface IPost {
-    publicKey: string;
+    author: string;
     content: string;
 }

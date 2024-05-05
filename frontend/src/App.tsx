@@ -18,10 +18,11 @@ const App: React.FC = () => {
             <div className="tweet-container">
                 <TweetForm/>
                 {posts.map((post, index) => {
-                    if (!usersMap.has(post.publicKey)) {
-                        addUser(post.publicKey);
+                    console.log(post);
+                    if (!usersMap.has(post.author)) {
+                        addUser(post.author);
                     }
-                    const user = usersMap.get(post.publicKey);
+                    const user = usersMap.get(post.author);
                     if (!user) {
                         console.error('User should be valid here.');
                         return;
@@ -29,11 +30,12 @@ const App: React.FC = () => {
                     const tweet: ITweet = {
                         id: index,
                         author: user.username,
-                        publicKey: post.publicKey,
+                        publicKey: post.author,
                         content: post.content,
                         createdAt: '',
                         avatarUrl: user.avatarPath
                     };
+                    console.log(tweet);
                     return <TweetCard key={index} tweet={tweet}/>;
                 })}
             </div>
