@@ -86,6 +86,7 @@ class P2PClient:
                 # Listen and accept incoming connections from other peers through connector socket
                 elif sock is self.connector_socket:
                     peer_sock, addr = sock.accept()
+                    self._log(f"[INFO] Incoming P2P connection from {addr}")
                     # self.peer_sockets.add(peer_sock)
                     self.join_handler(peer_sock)
 
@@ -104,7 +105,7 @@ class P2PClient:
         connector_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         connector_socket.bind((host, port))
         connector_socket.listen(32)
-        self._log(f"Tracker listening on {host}:{port}")
+        self._log(f"P2P client listening on {host}:{port}")
         return connector_socket
 
     def _log(self, *args):

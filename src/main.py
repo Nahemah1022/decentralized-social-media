@@ -11,7 +11,7 @@ from src.webserver import run_webserver
 """
 python3 src/main.py tracker --tracker_addr='127.0.0.1' --tracker_port=8000
 python3 src/main.py node --p2p_port=6000 --node_port=9000 --tracker_addr='127.0.0.1' --tracker_port=8000 --heartbeat_interval=1
-python3 src/main.py webserver --tracker_addr='127.0.0.1' --tracker_port=8000 --interval=1 --server_port=5000
+python3 src/main.py webserver --server_port=6000 --tracker_addr='127.0.0.1' --tracker_port=8000 --interval=1
 """
 
 def main():

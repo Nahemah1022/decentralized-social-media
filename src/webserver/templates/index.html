@@ -117,7 +117,7 @@
                 // Read public key file
                 const publicKey = await readFileAsync(publicKeyInput.files[0]);
                 // Send data, public key, and signature to server
-                fetch('http://127.0.0.1:5000/message', {
+                fetch('http://127.0.0.1:8080/message', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

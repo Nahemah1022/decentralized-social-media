@@ -83,6 +83,7 @@ class Blockchain():
     # add a new block to the chain
     def add(self, block):
         if self.isAttachableBlock(block):
+            print("[Blockchain] Add new block")
             self.block_table[block.hash()] = len(self.chain)
             self.chain.append(block)
             self.block_hash_pool.add(hash(block.data))
