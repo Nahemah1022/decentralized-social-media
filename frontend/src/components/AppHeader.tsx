@@ -11,14 +11,15 @@ interface AppHeaderProps {
 
 
 const LogInComponent: React.FC = () => {
-    const { publicKeyHash, setPublicKeyHash } = usePublicKey();
+    const { setPublicKey, publicKeyHash, setPublicKeyHash } = usePublicKey();
     const [loggedIn, setLoggedIn] = useState<boolean>(false);
 
-    const handleFileUpload = async (elem: HTMLInputElement) => {
-        calculatePublicKeyHash(elem).then(hash => {
-            if (hash) {
+    const handlePublicKeyUpload = async (elem: HTMLInputElement) => {
+        calculatePublicKeyHash(elem).then(res => {
+            if (res) {
                 setLoggedIn(true);
-                setPublicKeyHash(hash);
+                setPublicKey(res.key);
+                setPublicKeyHash(res.hash);
             } else {
                 console.error('Failed to log in.');
             }
@@ -32,7 +33,7 @@ const LogInComponent: React.FC = () => {
                     <Message
                         content={loggedIn ? `Logged in as ${publicKeyHash}` : 'Upload your public key to sign in.'}>
                     </Message>
-                    <input type='file' onChange={(e) => handleFileUpload(e.target)}></input>
+                    <input type='file' onChange={(e) => handlePublicKeyUpload(e.target)}></input>
                 </>
             }
             on={['click']}

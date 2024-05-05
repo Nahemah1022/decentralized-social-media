@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 interface PublicKeyContextType {
+    publicKey: string;
     publicKeyHash: string;
+    setPublicKey: React.Dispatch<React.SetStateAction<string>>;
     setPublicKeyHash: React.Dispatch<React.SetStateAction<string>>;
 }
 
@@ -20,10 +22,11 @@ interface PublicKeyProviderProps {
 }
 
 export const PublicKeyProvider = ({ children }: PublicKeyProviderProps) => {
+    const [publicKey, setPublicKey] = useState<string>('');
     const [publicKeyHash, setPublicKeyHash] = useState<string>('');
 
     return (
-        <PublicKeyContext.Provider value={{ publicKeyHash, setPublicKeyHash }}>
+        <PublicKeyContext.Provider value={{ publicKey, publicKeyHash, setPublicKey, setPublicKeyHash }}>
             {children}
         </PublicKeyContext.Provider>
     );

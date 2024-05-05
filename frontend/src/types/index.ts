@@ -1,6 +1,7 @@
+// FIXME: Fix Attributes
 export interface ITweet {
     id: number;
-    username: string;
+    author: string;
     content: string;
     createdAt: string;
     avatarUrl: string;

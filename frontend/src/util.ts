@@ -1,3 +1,5 @@
+export const ALGORITHM = 'RSASSA-PKCS1-v1_5';
+
 export function download(data: BlobPart, filename: string) {
     const blob = new Blob([data], {type: 'text/plain'});
     const url = window.URL.createObjectURL(blob);
@@ -21,7 +23,7 @@ export async function readFileAsync(file: Blob): Promise<string | ArrayBuffer | 
     });
 }
 
-export async function calculatePublicKeyHash(fileInput: HTMLInputElement): Promise<string | null> {
+export async function calculatePublicKeyHash(fileInput: HTMLInputElement): Promise<{key: string, hash: string} | null> {
     try {
         if (fileInput.files == null) {
             console.error('No file was uploaded.');
@@ -29,13 +31,15 @@ export async function calculatePublicKeyHash(fileInput: HTMLInputElement): Promi
         }
         const publicKey = await readFileAsync(fileInput.files[0]);
         if (typeof publicKey !== 'string') {
-            console.error(`Unexpected public key: ${publicKey}; expected: <string>`);
+            console.error(`Unexpected public key: ${publicKey}; expected type: <string>`);
             return null;
         }
 
-        const encoder = new TextEncoder();
-        const publicKeyHash = await crypto.subtle.digest('SHA-256', encoder.encode(publicKey));
-        return Array.from(new Uint8Array(publicKeyHash)).map(b => b.toString(16).padStart(2, '0')).join('');
+        const publicKeyHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(publicKey));
+        return {
+            key: publicKey,
+            hash: Array.from(new Uint8Array(publicKeyHash)).map(b => b.toString(16).padStart(2, '0')).join('')
+        };
     } catch (error) {
         console.error('Error calculating public key hash:', error);
         return null;
