@@ -118,6 +118,8 @@ class Worker():
             is_first = False
             with self.pool_lock:
                 # otherwise, the block might have already been mined and propagates to this node
+                if hash(pending_block_data) in self.bc.block_hash_pool:
+                    return
                 if pending_block_data in self.mempool and self.bc.isAttachableBlock(mined_block):
                     is_first = True
                     self.mempool.remove(pending_block_data)
@@ -181,6 +183,8 @@ class Worker():
 
     # validate the block, and add it to local blockchain
     def __mined_block(self, block, peer_sock):
+        if hash(block.data) in self.bc.block_hash_pool:
+            return
         if self.bc.isAttachableBlock(block):
             with self.pool_lock:
                 # remove this valid block in mempool, and attach it to the current blockchain
