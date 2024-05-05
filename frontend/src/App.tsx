@@ -22,7 +22,10 @@ const App: React.FC = () => {
                 ?
                 <div className="tweet-container">
                     <TweetForm/>
-                    {posts.map((tweet) => <TweetCard key={tweet.id} tweet={tweet}/>)}
+                    {posts.map((tweet, index) => {
+                        console.log(`rendering tweet`, tweet);
+                        return (<TweetCard key={index} tweet={tweet}/>);
+                    })}
                 </div>
                 :
                 <AboutUs/>

@@ -67,7 +67,8 @@ const TweetForm = () => {
                 .then(response => response.json())
                 .then(data => {
                     console.log('Response:', data);
-                    fetchPosts();
+                    setTimeout(() => fetchPosts(), 100);  // FIXME: Not working??
+                    setContent('');
                 })
                 .catch(error => {
                     console.error('Error:', error);
@@ -82,7 +83,7 @@ const TweetForm = () => {
         <Form className="tweet-form">
             <TextArea
                 placeholder='What is happening?!'
-                value={content}
+                value={content.trim()}
                 onChange={(_, data: any) => setContent(data.value)}
                 style={{minHeight: 100}}
             />
@@ -91,7 +92,7 @@ const TweetForm = () => {
                     wide
                     on={'click'}
                     trigger={
-                        <Button type='submit' primary compact size='small'>
+                        <Button type='submit' primary compact size='small' disabled={content.trim() === ''}>
                             Sign & Post
                         </Button>
                     }
