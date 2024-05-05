@@ -11,6 +11,17 @@
 
 This project consists of multiple components that can be run independently. Below are the commands to start each service:
 
+### Frontend
+
+Before your first use, you would need to build the frontend.
+
+```bash
+cd frontend
+npm install
+npm run build
+cd ..  # Go back to the root dir
+```
+
 ### Tracker
 
 To start the tracker service, use the following command. The tracker listens on a specified address and port.
@@ -36,21 +47,3 @@ python3 src/main.py webserver --server_port=5000 --tracker_addr='127.0.0.1' --tr
 ```
 
 *Please replace this text with information on how to run your code, description of each file in the directory, and any assumptions you have made for your code*
-
-### Frontend (FIXME)
-
-```bash
-# Install backend dependencies
-pip3 install -r backend/requirements.txt
-
-# Install frontend dependencies and build the frontend
-cd frontend2
-npm install
-npm run build
-
-# Run the server
-cd ..
-python3 backend/app/app.py
-
-# Now you can visit localhost:5000 to see the app!
-```
