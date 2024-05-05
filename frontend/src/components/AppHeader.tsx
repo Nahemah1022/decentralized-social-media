@@ -26,7 +26,9 @@ const LogInComponent: React.FC = () => {
             content={
                 <>
                     <Message
-                        content={loggedIn ? `Logged in as\n${publicKeyHash}` : 'Upload your public key to sign in.'}>
+                        content={loggedIn
+                            ? `Logged in as\n${publicKeyHash}`
+                            : 'Upload your public key to sign in.'}>
                     </Message>
                     <input type='file' onChange={(e) => handlePublicKeyUpload(e.target)}></input>
                 </>
@@ -49,7 +51,7 @@ const RegisterComponent = () => {
             on={'click'}
             position='bottom center'
             wide
-            trigger={<Button as='a' inverted primary style={{marginLeft: '0.5em'}}>New User</Button>}
+            trigger={<Button as='a' inverted primary>New User</Button>}
         />
     );
 };
@@ -59,12 +61,12 @@ const AppHeader = () => {
     const {setPosts} = usePosts();
     return (
         <Menu inverted borderless className={'fixed'}>
-            <Container>
-                <Menu.Item position='left'>
+            <Container style={{justifyContent: 'space-around'}}>
+                <Menu.Item>
                     <RegisterComponent/>
                     <LogInComponent/>
                 </Menu.Item>
-                <Menu.Item postion='right' as='a' onClick={() => fetchPosts().then(setPosts)}>
+                <Menu.Item as='a' onClick={() => fetchPosts().then(setPosts)}>
                     Refresh Posts
                 </Menu.Item>
             </Container>

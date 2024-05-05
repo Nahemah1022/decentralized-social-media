@@ -82,3 +82,7 @@
     margin-block-start: 0.67em;
     font-family: 'Lato', 'Helvetica Neue', Arial, Helvetica, sans-serif;
 }
+
+.ui.container {
+    width: 100% !important;
+}
