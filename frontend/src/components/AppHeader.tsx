@@ -1,16 +1,18 @@
 import React, {useState} from 'react';
 import {Menu, Button, Container, Popup, Message} from 'semantic-ui-react';
-import {calculatePublicKeyHash, download} from "../util";
+import {calculatePublicKeyHash, generateKeyPair} from "../util";
+import '@shoelace-style/shoelace/dist/components/input/input';
+import {usePublicKey} from "../context/PublicKeyProvider";
 
 interface AppHeaderProps {
     onPageChange: (page: string) => void;
     activePage: string; // New prop to determine the active page
 }
 
-const LogInComponent = () => {
-    const [loggedIn, setLoggedIn] = useState(false);
-    const [publicKeyHash, setPublicKeyHash] = useState('');
-    const [waysToTrigger, setWaysToTrigger] = useState(['click']);
+
+const LogInComponent: React.FC = () => {
+    const { publicKeyHash, setPublicKeyHash } = usePublicKey();
+    const [loggedIn, setLoggedIn] = useState<boolean>(false);
 
     const handleFileUpload = async (elem: HTMLInputElement) => {
         calculatePublicKeyHash(elem).then(hash => {
@@ -20,7 +22,7 @@ const LogInComponent = () => {
             } else {
                 console.error('Failed to log in.');
             }
-        })
+        });
     }
 
     return (
@@ -28,11 +30,11 @@ const LogInComponent = () => {
             content={
                 <>
                     <Message
-                        content={loggedIn ? `Logged in as ${publicKeyHash}` : 'Upload your public key to log in.'}
-                    >
+                        content={loggedIn ? `Logged in as ${publicKeyHash}` : 'Upload your public key to sign in.'}>
                     </Message>
-                    <input type='file' onChange={(e) => handleFileUpload(e.target)}/>
-                </>}
+                    <input type='file' onChange={(e) => handleFileUpload(e.target)}></input>
+                </>
+            }
             on={['click']}
             position='bottom center'
             trigger={
@@ -40,9 +42,21 @@ const LogInComponent = () => {
                     as='a'
                     inverted
                 >
-                    {loggedIn ? 'Update Public Key' : 'Set Public Key'}
+                    {loggedIn ? 'Update Public Key' : 'Sign In'}
                 </Button>
             }
+        />
+    );
+};
+
+const RegisterComponent = () => {
+    return (
+        <Popup
+            content={<Button onClick={generateKeyPair}>Generate Key Pair</Button>}
+            on={'click'}
+            position='bottom center'
+            wide
+            trigger={<Button as='a' inverted primary style={{marginLeft: '0.5em'}}>New User</Button>}
         />
     );
 };
@@ -67,68 +81,12 @@ const AppHeader: React.FC<AppHeaderProps> = ({onPageChange, activePage}) => {
                     About
                 </Menu.Item>
                 <Menu.Item position='right'>
-                    <LogInComponent></LogInComponent>
-                    <Popup
-                        content='Generate a private-public key pair.'
-                        position='bottom center'
-                        trigger={
-                            <Button
-                                as='a'
-                                inverted
-                                primary
-                                style={{marginLeft: '0.5em'}}
-                                onClick={generateButtonClick}
-                            >
-                                Generate Key Pair
-                            </Button>
-                        }
-                    />
+                    <LogInComponent/>
+                    <RegisterComponent/>
                 </Menu.Item>
-
             </Container>
         </Menu>
     );
 };
-
-/**
- * Generates a key pair (public and private keys) using the RSASSA-PKCS1-v1_5 algorithm.
- * The generated keys are exported in PEM format and saved as 'public_key.pem' and 'private_key.pem'.
- */
-const generateButtonClick = async () => {
-    try {
-        // Generate Key Pair
-        const keyPair = await window.crypto.subtle.generateKey(
-            {
-                name: "RSASSA-PKCS1-v1_5",
-                modulusLength: 2048,
-                publicExponent: new Uint8Array([1, 0, 1]),
-                hash: {name: "SHA-256"},
-            },
-            true,
-            ["sign", "verify"]
-        );
-        const privateKey = keyPair.privateKey;
-        const publicKey = keyPair.publicKey;
-
-        // Export and save the public key
-        const exportedPublicKey = await window.crypto.subtle.exportKey("spki", publicKey);
-        const pemExportedPublicKey =
-            "-----BEGIN PUBLIC KEY-----\n" +
-            btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(exportedPublicKey)))) + "\n" +
-            "-----END PUBLIC KEY-----";
-        download(pemExportedPublicKey, 'public_key.pem');
-
-        // Export and save the private key
-        const exportedPrivateKey = await window.crypto.subtle.exportKey("pkcs8", privateKey);
-        const pemExportedPrivateKey =
-            "-----BEGIN PRIVATE KEY-----\n" +
-            btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(exportedPrivateKey)))) + "\n" +
-            "-----END PRIVATE KEY-----";
-        download(pemExportedPrivateKey, 'private_key.pem');
-    } catch (error) {
-        console.error("Error generating key pair:", error);
-    }
-};
-
 
 export default AppHeader;

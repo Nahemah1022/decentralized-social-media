@@ -41,3 +41,44 @@ export async function calculatePublicKeyHash(fileInput: HTMLInputElement): Promi
         return null;
     }
 }
+
+/**
+ * Generates a key pair (public and private keys) using the RSASSA-PKCS1-v1_5 algorithm.
+ * The generated keys are exported in PEM format and saved as 'public_key.pem' and 'private_key.pem'.
+ */
+export const generateKeyPair = async () => {
+    try {
+        // Generate Key Pair
+        const keyPair = await window.crypto.subtle.generateKey(
+            {
+                name: "RSASSA-PKCS1-v1_5",
+                modulusLength: 2048,
+                publicExponent: new Uint8Array([1, 0, 1]),
+                hash: {name: "SHA-256"},
+            },
+            true,
+            ["sign", "verify"]
+        );
+        const privateKey = keyPair.privateKey;
+        const publicKey = keyPair.publicKey;
+
+        // Export and save the public key
+        const exportedPublicKey = await window.crypto.subtle.exportKey("spki", publicKey);
+        const pemExportedPublicKey =
+            "-----BEGIN PUBLIC KEY-----\n" +
+            btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(exportedPublicKey)))) + "\n" +
+            "-----END PUBLIC KEY-----";
+        download(pemExportedPublicKey, 'public_key.pem');
+
+        // Export and save the private key
+        const exportedPrivateKey = await window.crypto.subtle.exportKey("pkcs8", privateKey);
+        const pemExportedPrivateKey =
+            "-----BEGIN PRIVATE KEY-----\n" +
+            btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(exportedPrivateKey)))) + "\n" +
+            "-----END PRIVATE KEY-----";
+        download(pemExportedPrivateKey, 'private_key.pem');
+    } catch (error) {
+        console.error("Error generating key pair:", error);
+    }
+};
+
