@@ -1,12 +1,14 @@
 version: '3.8'
 services:
   tracker:
+    restart: always
     build: .
     ports:
       - "8000:8000"
     command: python src/main.py tracker --tracker_addr='0.0.0.0' --tracker_port=8000
 
   webserver:
+    restart: always
     build: .
     ports:
       - "8080:8080"
@@ -15,6 +17,7 @@ services:
       - tracker
 
   node1:
+    restart: always
     build: .
     expose:
       - "6000"
@@ -24,6 +27,7 @@ services:
       - tracker
 
   node2:
+    restart: always
     build: .
     expose:
       - "6000"

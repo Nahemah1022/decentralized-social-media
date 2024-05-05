@@ -1,4 +1,5 @@
 **
 !src/
+!frontend/
 *.md
 tests/
