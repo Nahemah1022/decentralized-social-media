@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, make_response, render_template
+from flask import Flask, jsonify, request, make_response, render_template, send_from_directory
 from flask_cors import CORS
 from apscheduler.schedulers.background import BackgroundScheduler
 import base64
@@ -15,7 +15,7 @@ from src.blockchain import Blockchain
 from src.crypto import sign_data, verify_signature
 from .socket_manager import SocketManager
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='../../frontend/build/', static_url_path='')
 CORS(app, resources={r"/*": {"origins": "*"}}, send_wildcard=True, support_credentials=True)
 
 def _build_cors_preflight_response():
@@ -33,7 +33,7 @@ socket_manager = None
 
 @app.route('/', methods=['GET'])
 def index():
-    return render_template('index.html')
+    return send_from_directory(app.static_folder, 'index.html')
 
 """
 curl -X GET http://localhost:5000/chain
