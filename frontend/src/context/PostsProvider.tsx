@@ -1,10 +1,9 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { ITweet } from '../types';
+import React, {createContext, useContext, useEffect, useState} from 'react';
+import {ITweet} from '../types';
 
 interface PostsContextType {
     posts: ITweet[];
     setPosts: React.Dispatch<React.SetStateAction<ITweet[]>>;
-    fetchPosts: () => Promise<void>;
 }
 
 const PostsContext = createContext<PostsContextType | undefined>(undefined);
@@ -21,30 +20,29 @@ interface PostsProviderProps {
     children: React.ReactNode;
 }
 
-export const PostsProvider = ({ children }: PostsProviderProps) => {
+export const fetchPosts = async (): Promise<Array<ITweet>> => {
+    try {
+        const response = await fetch('http://127.0.0.1:5000/chain');  // FIXME
+        if (!response.ok)
+            throw new Error(`Failed to fetch posts: ${response.statusText}`);
+        const posts: Array<ITweet> = await response.json();
+        console.debug('Fetched posts:', posts);
+        return posts.reverse();
+    } catch (error) {
+        console.error('Error fetching posts:', error);
+        return [];
+    }
+};
+
+export const PostsProvider = ({children}: PostsProviderProps) => {
     const [posts, setPosts] = useState<ITweet[]>([]);
 
-    const fetchPosts = async (): Promise<void> => {
-        try {
-            const response = await fetch('http://localhost:5000/chain');  // FIXME
-            if (!response.ok) {
-                // noinspection ExceptionCaughtLocallyJS
-                throw new Error(`Failed to fetch posts: ${response.statusText}`);
-            }
-            const fetchedPosts = await response.json();
-            setPosts(fetchedPosts);
-            console.log('Fetched posts:', fetchedPosts);
-        } catch (error) {
-            console.error('Error fetching posts:', error);
-        }
-    };
-
     useEffect(() => {
-        fetchPosts().then(_ => console.log('Finished fetching posts.'));
+        fetchPosts().then(posts => setPosts(posts));
     }, []);
 
     return (
-        <PostsContext.Provider value={{ posts, setPosts, fetchPosts }}>
+        <PostsContext.Provider value={{posts, setPosts}}>
             {children}
         </PostsContext.Provider>
     );

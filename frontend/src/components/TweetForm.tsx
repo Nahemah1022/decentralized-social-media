@@ -2,13 +2,13 @@ import React, {useState} from 'react';
 import {Button, Form, Message, Popup, TextArea} from 'semantic-ui-react';
 import {ALGORITHM, readFileAsync} from "../util";
 import {usePublicKey} from "../context/PublicKeyProvider";
-import {usePosts} from "../context/PostsProvider";
+import {fetchPosts, usePosts} from "../context/PostsProvider";
 
 
 const TweetForm = () => {
     const [content, setContent] = useState('');
     const {publicKey} = usePublicKey();
-    const {fetchPosts} = usePosts();
+    const {setPosts} = usePosts();
 
     /**
      * Process a private key file.
@@ -62,17 +62,14 @@ const TweetForm = () => {
                     public_key: publicKey,
                     signature: btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(signature))))
                 }),
-                // credentials: 'include'  // Include credentials for cookies, authorization headers or TLS client certificates
             })
                 .then(response => response.json())
-                .then(data => {
-                    console.log('Response:', data);
-                    setTimeout(() => fetchPosts(), 100);  // FIXME: Not working??
+                .then(_ => {
+                    // FIXME: Right now 500ms seems to be a safe delay
+                    setTimeout(() => fetchPosts().then(posts => setPosts(posts)), 500);
                     setContent('');
                 })
-                .catch(error => {
-                    console.error('Error:', error);
-                });
+                .catch(error => console.error('Error:', error));
         } catch (error) {
             console.error('Error calculating public key hash:', error);
             return null;
@@ -83,7 +80,7 @@ const TweetForm = () => {
         <Form className="tweet-form">
             <TextArea
                 placeholder='What is happening?!'
-                value={content.trim()}
+                value={content}
                 onChange={(_, data: any) => setContent(data.value)}
                 style={{minHeight: 100}}
             />
@@ -92,8 +89,8 @@ const TweetForm = () => {
                     wide
                     on={'click'}
                     trigger={
-                        <Button type='submit' primary compact size='small' disabled={content.trim() === ''}>
-                            Sign & Post
+                        <Button type='submit' primary compact size='small' disabled={!publicKey || !content.trim()}>
+                            {publicKey ? 'Sign & Post' : 'Sign in to continue...'}
                         </Button>
                     }
                     content={
