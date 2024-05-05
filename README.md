@@ -1,6 +1,6 @@
 [![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-24ddc0f5d75046c5622901739e7c5dd533143b0c8e959d652212380cedb1ea36.svg)](https://classroom.github.com/a/-Lgd7v9y)
 # CSEE 4119 Spring 2024, Class Project
-## Team name: Fat Cat
+## Team name: Distributed Social Media
 ## Team members (name, GitHub username):
 - Yin-Tung Chen (yc4377), Nahemah1022
 - Claire Chen (yc3387), yee-cee
@@ -11,7 +11,16 @@
 
 This project consists of multiple components that can be run independently. Below are the commands to start each service:
 
-### Tracker
+### Start by Docker Compose
+
+Execute the following commands to spin up all service in one shot. You can modify the configuration for services in the `docker-compose.yml` file.
+
+```
+docker-compose build
+docker-compose up -d
+```
+
+### Start Services Individually
 
 To start the tracker service, use the following command. The tracker listens on a specified address and port.
 
@@ -19,15 +28,11 @@ To start the tracker service, use the following command. The tracker listens on 
 python3 src/main.py tracker --tracker_addr='127.0.0.1' --tracker_port=8000
 ```
 
-### Node
-
 To start a node, run the following command. Nodes communicate with the tracker and other nodes, operating on specified P2P and node ports.
 
 ```
 python3 src/main.py node --p2p_port=6000 --node_port=9000 --tracker_addr='127.0.0.1' --tracker_port=8000 --heartbeat_interval=10
 ```
-
-### Webserver
 
 To start the webserver that interfaces with the tracker and possibly nodes, use the command below:
 
