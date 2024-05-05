@@ -52,7 +52,7 @@ const TweetForm = () => {
                 ALGORITHM, privateKey, new TextEncoder().encode(content));
 
             // FIXME: Hardcoded link
-            fetch('http://127.0.0.1:5000/message', {
+            fetch('http://127.0.0.1:8080/message', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

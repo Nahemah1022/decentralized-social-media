@@ -26,7 +26,7 @@ export const PostsProvider = ({ children }: PostsProviderProps) => {
 
     const fetchPosts = async (): Promise<void> => {
         try {
-            const response = await fetch('http://localhost:5000/chain');  // FIXME
+            const response = await fetch('http://localhost:8080/chain');  // FIXME
             if (!response.ok) {
                 // noinspection ExceptionCaughtLocallyJS
                 throw new Error(`Failed to fetch posts: ${response.statusText}`);
