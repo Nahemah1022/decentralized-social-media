@@ -35,7 +35,7 @@ const TweetCard: React.FC<TweetCardProps> = ({ tweet }) => {
                     src={tweet.avatarUrl}
                     avatar
                 />
-                <Card.Header>{tweet.author.substring(0, 8)}</Card.Header>
+                <Card.Header>{tweet.author}</Card.Header>
                 <Card.Meta>{new Date(tweet.createdAt).toLocaleDateString()}</Card.Meta>
                 <ReactMarkdown className={'markdown-content'}>
                     {tweet.content}
