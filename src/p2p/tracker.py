@@ -119,7 +119,7 @@ class Tracker:
         if top_k == None:
             top_k = len(self.clients_sockets)
         top_k_list = sorted(self.clients_sockets.values(), key=lambda x: x[2], reverse=True)[:top_k]
-        return [node_addr for _, _, _, node_addr in top_k_list]
+        return [socket.inet_aton(addr) + node_addr[4:] for addr, _, _, node_addr in top_k_list]
 
     def create_server_socket(self, host, port):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

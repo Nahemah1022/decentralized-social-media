@@ -80,8 +80,8 @@ class Node(Worker):
 
 def run_node(args):
     node = Node(
-        p2p_addr=('127.0.0.1', args.p2p_port), 
-        node_addr=('127.0.0.1', args.node_port), 
+        p2p_addr=('0.0.0.0', args.p2p_port), 
+        node_addr=('0.0.0.0', args.node_port), 
         tracker_addr=(args.tracker_addr, args.tracker_port),
         heartbeat_interval=args.heartbeat_interval
     )

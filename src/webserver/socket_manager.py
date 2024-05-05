@@ -36,6 +36,7 @@ class SocketManager:
                 addr = socket.inet_ntoa(recv_msg.payload[:4])
                 port_num = int.from_bytes(recv_msg.payload[4:6], 'big')
                 self.current_node_addr = (addr, port_num)
+                print(f"[INFO] Trying to connect to node at {self.current_node_addr}")
 
                 self.node_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.node_socket.connect(self.current_node_addr)

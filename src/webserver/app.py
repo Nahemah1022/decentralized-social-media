@@ -100,12 +100,10 @@ def post_message():
 def run_webserver(args):
     global socket_manager
     socket_manager = SocketManager((args.tracker_addr, args.tracker_port))
-    socket_manager.update_connection()
     scheduler = BackgroundScheduler()
     scheduler.add_job(func=socket_manager.update_connection, trigger="interval", minutes=args.interval)
     scheduler.start()
     try:
-        app.run(port=args.server_port, debug=True, use_reloader=False)  # Use reloader=False to not interfere with APScheduler
+        app.run(host='0.0.0.0', port=args.server_port, debug=True, use_reloader=False)  # Use reloader=False to not interfere with APScheduler
     except (KeyboardInterrupt, SystemExit):
         scheduler.shutdown()
-
