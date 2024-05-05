@@ -39,3 +39,14 @@ To start the webserver that interfaces with the tracker and possibly nodes, use 
 ```
 python3 src/main.py webserver --server_port=5000 --tracker_addr='127.0.0.1' --tracker_port=8000 --interval=1
 ```
+
+### Frontend
+
+Before your first use, you would need to build the frontend.
+
+```bash
+cd frontend
+npm install
+npm run build
+cd ..  # Go back to the root dir
+```
