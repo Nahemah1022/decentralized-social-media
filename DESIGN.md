@@ -45,5 +45,5 @@ Header                    Body
 - Hash functions: uses SHA-256 to generate cryptographic hashes for blocks.
 - Asymmetric encryption: uses 256-byte RSA public/private key pairs to verify the identity of message senders, ensure data integrity and non-repudiation.
 
-## Implementation Detain
+## Implementation Details
 ![](assets/UML.png)
