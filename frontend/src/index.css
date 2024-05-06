@@ -49,7 +49,7 @@
 }
 
 .tweet-container {
-    margin-top: 1em;
+    margin-top: 4em;
     padding: 20px;
 }
 
@@ -76,4 +76,13 @@
 
 .ui.menu {
     border-radius: 0;
+}
+
+.markdown-content {
+    margin-block-start: 0.67em;
+    font-family: 'Lato', 'Helvetica Neue', Arial, Helvetica, sans-serif;
+}
+
+.ui.container {
+    width: 100% !important;
 }

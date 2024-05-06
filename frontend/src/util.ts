@@ -86,3 +86,10 @@ export const generateKeyPair = async () => {
     }
 };
 
+export const findKeyByValue = <K, V>(map: Map<K, V>, searchValue: V): K | undefined => {
+    const entry = Array.from(map.entries()).find(([_, value]) => value === searchValue);
+    const res = entry ? entry[0] : undefined;
+    console.log(res);
+    return res;
+};
+
