@@ -7,9 +7,10 @@ This file describes the testing strategy and implementation details for the Dece
 Before executing the tests, ensure that the system is configured correctly:
 1. Python version: Python 3.8 or higher.
 2. Required libraries: pytest, pyOpenSSL, socket, os, time, and random.
-```
-python3 -m pip install pytest
-```
+eg:
+    ```
+    python3 -m pip install pytest
+    ```
 3. Set up virtual environment and install dependencies using:
    ```
    python3 -m venv venv
@@ -50,29 +51,116 @@ Focuses on the blockchain worker's ability to handle mining and chain synchroniz
 
 ## Test Results
 ### 1. `client_test.py`
+```
+python3 -m pytest tests/client_tes
+t.py
+====================== test session starts =======================
+platform linux -- Python 3.8.10, pytest-8.2.0, pluggy-1.5.0
+rootdir: /home/yc3387/project-fat-cat
+collected 2 items                                                
 
+tests/client_test.py F.                                    [100%]
+
+============================ FAILURES ============================
+_______________________ test_node_sockets ________________________
+
+    def test_node_sockets():
+        base_port = random.randint(49152, 65000)
+        tracker = Tracker('127.0.0.1', base_port, 'tracker')
+        num_of_nodes = 10
+        nodes = []
+        for i in range(num_of_nodes):
+            nodes.append(Node(
+                log_filepath=f"node_{i}",
+                p2p_addr=('127.0.0.1', base_port + i + 1),
+                tracker_addr=('127.0.0.1', base_port),
+                heartbeat_interval=1))
+        time.sleep(num_of_nodes)
+        for node in nodes:
+>           assert node._get_num_peers() == num_of_nodes - 1
+E           assert 7 == (10 - 1)
+E            +  where 7 = <bound method Worker._get_num_peers of <src.node.Node object at 0x7f600d0ec1c0>>()
+E            +    where <bound method Worker._get_num_peers of <src.node.Node object at 0x7f600d0ec1c0>> = <src.node.Node object at 0x7f600d0ec1c0>._get_num_peers
+
+tests/client_test.py:28: AssertionError
+---------------------- Captured stdout call ----------------------
+P2P client listening on 127.0.0.1:54507
+[INFO] Connected to tracker.
+P2P client listening on 127.0.0.1:54508
+[INFO] Connected to tracker.
+[INFO] Incoming P2P connection from ('127.0.0.1', 35208)
+[INFO] Connected to peer at ('127.0.0.1', 54507).
+P2P client listening on 127.0.0.1:54509
+[INFO] Connected to tracker.
+[INFO] Incoming P2P connection from ('127.0.0.1', 35210)
+[INFO] Connected to peer at ('127.0.0.1', 54507).
+[INFO] Incoming P2P connection from ('127.0.0.1', 32982)
+[INFO] Connected to peer at ('127.0.0.1', 54508).
+P2P client listening on 127.0.0.1:54510
+[INFO] Connected to tracker.
+[INFO] Connected to peer at ('127.0.0.1', 54507).
+[INFO] Connected to peer at ('127.0.0.1', 54508).
+P2P client listening on 127.0.0.1:54511
+[INFO] Connected to tracker.
+[INFO] Connected to peer at ('127.0.0.1', 54507).
+[INFO] Connected to peer at ('127.0.0.1', 54508).
+P2P client listening on 127.0.0.1:54512
+[INFO] Connected to tracker.
+[INFO] Connected to peer at ('127.0.0.1', 54507).
+[INFO] Connected to peer at ('127.0.0.1', 54508).
+P2P client listening on 127.0.0.1:54513
+[INFO] Connected to tracker.
+[INFO] Connected to peer at ('127.0.0.1', 54507).
+[INFO] Connected to peer at ('127.0.0.1', 54508).
+P2P client listening on 127.0.0.1:54514
+[INFO] Connected to tracker.
+[INFO] Connected to peer at ('127.0.0.1', 54507).
+[INFO] Connected to peer at ('127.0.0.1', 54508).
+P2P client listening on 127.0.0.1:54515
+[INFO] Connected to tracker.
+[INFO] Connected to peer at ('127.0.0.1', 54507).
+[INFO] Connected to peer at ('127.0.0.1', 54508).
+P2P client listening on 127.0.0.1:54516
+[INFO] Connected to tracker.
+[INFO] Connected to peer at ('127.0.0.1', 54507).
+[INFO] Connected to peer at ('127.0.0.1', 54508).
+[INFO] Incoming P2P connection from ('127.0.0.1', 32984)
+[INFO] Incoming P2P connection from ('127.0.0.1', 35226)
+[INFO] Connected to peer at ('127.0.0.1', 54509).
+[INFO] Incoming P2P connection from ('127.0.0.1', 35234)
+[INFO] Incoming P2P connection from ('127.0.0.1', 35246)
+[INFO] Incoming P2P connection from ('127.0.0.1', 55026)
+[INFO] Connected to peer at ('127.0.0.1', 54509).
+[INFO] Incoming P2P connection from ('127.0.0.1', 35254)
+[INFO] Incoming P2P connection from ('127.0.0.1', 32990)
+[INFO] Incoming P2P connection from ('127.0.0.1', 35256)
+[INFO] Incoming P2P connection from ('127.0.0.1', 32998)
+[INFO] Incoming P2P connection from ('127.0.0.1', 35268)
+[INFO] Incoming P2P connection from ('127.0.0.1', 32954)
+[INFO] Connected to peer at ('127.0.0.1', 54509).
+[INFO] Incoming P2P connection from ('127.0.0.1', 32966)
+[INFO] Incoming P2P connection from ('127.0.0.1', 35278)
+[INFO] Incoming P2P connection from ('127.0.0.1', 33006)
+[INFO] Incoming P2P connection from ('127.0.0.1', 33016)
+[INFO] Incoming P2P connection from ('127.0.0.1', 33026)
+[INFO] Incoming P2P connection from ('127.0.0.1', 33038)
+[INFO] Connected to peer at ('127.0.0.1', 54509).
+[INFO] Incoming P2P connection from ('127.0.0.1', 32972)
+[INFO] Connected to peer at ('127.0.0.1', 54510).
+[INFO] Incoming P2P connection from ('127.0.0.1', 35476)
+[INFO] Connected to peer at ('127.0.0.1', 54509).[INFO] Incoming P2P connection from ('127.0.0.1', 32980)
+
+[INFO] Connected to peer at ('127.0.0.1', 54510).
+==================== short test summary info =====================
+FAILED tests/client_test.py::test_node_sockets - assert 7 == (10 - 1)
+================== 1 failed, 1 passed in 15.74s ==================
+```
 
 ### 2. `node_test.py`
 ```
-python3 -m pip install pytest
-Collecting pytest
-  Downloading pytest-8.2.0-py3-none-any.whl (339 kB)
-     |████████████████████████████████| 339 kB 1.6 MB/s 
-Collecting pluggy<2.0,>=1.5
-  Using cached pluggy-1.5.0-py3-none-any.whl (20 kB)
-Collecting iniconfig
-  Using cached iniconfig-2.0.0-py3-none-any.whl (5.9 kB)
-Collecting exceptiongroup>=1.0.0rc8; python_version < "3.11"
-  Downloading exceptiongroup-1.2.1-py3-none-any.whl (16 kB)
-Collecting tomli>=1; python_version < "3.11"
-  Using cached tomli-2.0.1-py3-none-any.whl (12 kB)
-Collecting packaging
-  Using cached packaging-24.0-py3-none-any.whl (53 kB)
-Installing collected packages: pluggy, iniconfig, exceptiongroup, tomli, packaging, pytest
-  WARNING: The scripts py.test and pytest are installed in '/home/yc3387/.local/bin' which is not on PATH.
-  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
-Successfully installed exceptiongroup-1.2.1 iniconfig-2.0.0 packaging-24.0 pluggy-1.5.0 pytest-8.2.0 tomli-2.0.1
-(venv) yc3387@node2:~/project-fat-cat$ python3 -m pytest tests/node_test.py
+python3 -m pytest tests/node_test.py
+```
+```
 ========================================================================== test session starts ===========================================================================
 platform linux -- Python 3.8.10, pytest-8.2.0, pluggy-1.5.0
 rootdir: /home/yc3387/project-fat-cat
@@ -223,10 +311,134 @@ FAILED tests/node_test.py::test_multi_nodes - assert 1 == 4
 ```
 
 ### 3. `tracker_test.py`
+```
+python3 -m pytest tests/tracker_test.py
+```
+```
+======================= test session starts ========================
+platform linux -- Python 3.8.10, pytest-8.2.0, pluggy-1.5.0
+rootdir: /home/yc3387/project-fat-cat
+collected 1 item                                                   
 
+tests/tracker_test.py .                                      [100%]
+
+======================== 1 passed in 3.11s =========================
+```
 
 ### 4. `worker_test.py`
+```
+python3 -m pytest tests/worker_tes
+t.py
+```
+```
+====================== test session starts =======================
+platform linux -- Python 3.8.10, pytest-8.2.0, pluggy-1.5.0
+rootdir: /home/yc3387/project-fat-cat
+collected 1 item                                                 
 
+tests/worker_test.py F                                     [100%]
+
+============================ FAILURES ============================
+___________________ test_merge_longer_chain[0] ___________________
+
+iteration = 0
+
+    @pytest.mark.parametrize("iteration", range(1))
+    def test_merge_longer_chain(iteration):
+        sock1, sock2 = socket.socketpair()
+        node1 = Worker(enable_mining=True, name="node1", log_filepath="node1")
+        node2 = Worker(enable_mining=True, name="node2", log_filepath="node2")
+    
+        # base blocks in both peers
+        database = [b"hello", b"goodbye", b"test"]
+        with open('public_key.pem', 'rb') as public_key_file:
+            public_key_bytes = public_key_file.read()
+        for data in database:
+            signature = sign_data(data, 'private_key.pem')
+            node1._new_pending_block(signature=signature, public_key_bytes=public_key_bytes, data=data)
+            node2._new_pending_block(signature=signature, public_key_bytes=public_key_bytes, data=data)
+    
+        # time.sleep(1)
+    
+        # add some new blocks in peer1's chain
+        chain1_new = [b"chain1_1", b"chain1_2", b"chain1_3", b"chain1_4", b"chain1_5"]
+        for data in chain1_new:
+            signature = sign_data(data, 'private_key.pem')
+            node1._new_pending_block(signature=signature, public_key_bytes=public_key_bytes, data=data)
+    
+        # wait for peer1 mining complete
+        # time.sleep(1)
+    
+        # connect peer1 and peer2
+        node1._peer_join(sock1)
+        node2._peer_join(sock2)
+    
+        # send a new post to node2
+        post = b"post block"
+        signature = sign_data(post, 'private_key.pem')
+        node2._new_pending_block(signature=signature, public_key_bytes=public_key_bytes, data=post)
+    
+        """
+        both start mining this block of post at the same time
+        peer2 will recieve the post directly, and peer1 will recieve it through peer2's forwarding
+        case1: peer2 found a valid block and forward it to peer1:
+          => unattachable, pull the whole chain
+          => peer1's local chain is longer than peer2's remote chain
+          => reject to merge
+        case2: peer1 found a valid block and forward it to peer2:
+          => unattachable, pull the whole chain
+          => peer2's local chain is shorter than peer1's remote chain
+          => merged and synchronized successfully
+        """
+        time.sleep(10)
+        # print(len(database) + len(chain1_new) + 1)
+        # print(len(node1.bc.chain))
+        # print(len(node2.bc.chain))
+        # print(node1.bc.isValid())
+        # print(node2.bc.isValid())
+        # print(node1.bc)
+        # print("----------------------------------")
+        # print(node2.bc)
+        assert node1.bc.isValid()
+        assert node2.bc.isValid()
+>       assert len(node1.bc.chain) == len(database) + len(chain1_new) + 1
+E       AssertionError: assert 8 == ((3 + 5) + 1)
+E        +  where 8 = len([<src.blockchain.blockchain.Block object at 0x7ff9f5778460>, <src.blockchain.blockchain.Block object at 0x7ff9f571a2b0...blockchain.blockchain.Block object at 0x7ff9f571a130>, <src.blockchain.blockchain.Block object at 0x7ff9f571a5e0>, ...])
+E        +    where [<src.blockchain.blockchain.Block object at 0x7ff9f5778460>, <src.blockchain.blockchain.Block object at 0x7ff9f571a2b0...blockchain.blockchain.Block object at 0x7ff9f571a130>, <src.blockchain.blockchain.Block object at 0x7ff9f571a5e0>, ...] = <src.blockchain.blockchain.Blockchain object at 0x7ff9f576eee0>.chain
+E        +      where <src.blockchain.blockchain.Blockchain object at 0x7ff9f576eee0> = <src.blockchain.worker.Worker object at 0x7ff9f5824760>.bc
+E        +  and   3 = len([b'hello', b'goodbye', b'test'])
+E        +  and   5 = len([b'chain1_1', b'chain1_2', b'chain1_3', b'chain1_4', b'chain1_5'])
+
+tests/worker_test.py:75: AssertionError
+---------------------- Captured stdout call ----------------------
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+[Blockchain] Add new block
+==================== short test summary info =====================
+FAILED tests/worker_test.py::test_merge_longer_chain[0] - AssertionError: assert 8 == ((3 + 5) + 1)
+======================= 1 failed in 10.68s =======================
+```
 
 ## Test Coverage
 The tests cover the following key aspects:
