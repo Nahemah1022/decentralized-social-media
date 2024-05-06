@@ -52,8 +52,9 @@ Focuses on the blockchain worker's ability to handle mining and chain synchroniz
 ## Test Results
 ### 1. `client_test.py`
 ```
-python3 -m pytest tests/client_tes
-t.py
+python3 -m pytest tests/client_test.py
+```
+```
 ====================== test session starts =======================
 platform linux -- Python 3.8.10, pytest-8.2.0, pluggy-1.5.0
 rootdir: /home/yc3387/project-fat-cat
@@ -327,8 +328,7 @@ tests/tracker_test.py .                                      [100%]
 
 ### 4. `worker_test.py`
 ```
-python3 -m pytest tests/worker_tes
-t.py
+python3 -m pytest tests/worker_test.py
 ```
 ```
 ====================== test session starts =======================
