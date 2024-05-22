@@ -1,11 +1,6 @@
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-24ddc0f5d75046c5622901739e7c5dd533143b0c8e959d652212380cedb1ea36.svg)](https://classroom.github.com/a/-Lgd7v9y)
-# CSEE 4119 Spring 2024, Class Project
-## Team name: Distributed Social Media
-## Team members (name, GitHub username):
-- Yin-Tung Chen (yc4377), Nahemah1022
-- Claire Chen (yc3387), yee-cee
-- Junyao Duan (jd4024), rootofallevii
-- Chia-Mei Liu (cl4424), madiliu 
+# Decentralized Social Media
+
+Decentralized Social Media (DSM) is a p2p system that maintains a blockchain of social media posts. Users are identified by public key, and authorized to his post using the signature signed by the corresponding private key. The blockchain holds the chain of contents of each individual post and the public key hash of its author.
 
 ## Getting Started
 
